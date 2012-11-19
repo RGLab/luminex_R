@@ -1,0 +1,308 @@
+# read.Lxd
+#   parse .lxd files to retrive assay/phenoData and MFI/count/mean/trimStuff
+read.Lxd<-function(filename, path="./")
+{
+  lxd<-xmlTreeParse(filename)
+  root<-xmlRoot(lxd)
+
+  plate<-root[[which(names(root)=="Plate")]] #make a copy of the tree from the selected node
+  platerows<-c("A","B","C","D","E","F","G","H")
+
+  wVec<-c()
+  lxbVec<-c()
+  widx<-as.numeric(which(names(plate)=="Well"))
+  wInfoVec<-vector("list", length(widx))
+  for(curWidx in 1:length(widx))
+  {
+    #retrieve some well info
+    #TODO: parse <LocName> to put a name on each well
+    curNode<-plate[[widx[[curWidx]]]]
+    curWellInfo<-xmlAttrs(curNode)
+    wellName<-paste(platerows[[as.integer(curWellInfo[["row"]])+1]], curWellInfo[["col"]], sep="")
+    wVec<-c(wVec, wellName)
+    curWellInfo<-c(Well=wellName, curWellInfo[3:length(curWellInfo)])
+    wInfoVec[[curWidx]]<-curWellInfo
+    #retrieve lxb filenames
+    lxbStr<-xmlValue(curNode[["BinaryFileLoc"]])
+    lxbFile<-strsplit(lxbStr, split="\\\\")[[1]]
+    lxbFile<-lxbFile[length(lxbFile)]
+    lxbVec<-c(lxbVec, lxbFile)
+    #retrieve the beads
+    bidx<-as.numeric(which(names(curNode)=="RSts"))
+    #retrieve summary
+    for(curBidx in 1:length(bidx))
+    {
+      curID<-as.numeric(xmlAttrs(curNode[[bidx[[curBidx]]]])[1])
+      #curVals<-c(curWellInfo,xmlAttrs(curNode[[bidx[[curBidx]]]][4][[1]])) #4 is chan2 which should be the one used
+      curSummary<-unlist(list(bid=curID,well_id=wellName,xmlAttrs(curNode[[bidx[[curBidx]]]][4][[1]])[c("median","mean","stdDev","cv")])) #4 is chan2 which should be the one used
+      if(curWidx==1 & curBidx==1)
+        summary<-data.frame(as.list(curSummary), stringsAsFactors=FALSE) #initialize
+      else
+        summary<-rbind(summary, as.list(curSummary)) 
+    }
+  }
+
+  ##
+  # phenoData
+  ##
+  pData<-data.frame(well_id=wVec, filename=lxbVec) #Minimal pD output: filename + well_id
+  #pData<-cbind(t(data.frame(wInfoVec)), filename=lxbVec)
+  #rownames(pData)<-seq(1:length(widx) #Maximal pD output: filename + all well info
+  
+  ##
+  # assayData
+  ## 
+  setup<-root[[which(names(root)=="Setup")[1]]] #setup
+  setupRun<-root[[which(names(root)=="Setup")[2]]] #setupRun
+  #TODO: which run is what?
+  gateInfo<-xmlAttrs(setupRun[["SetGate"]])
+  regionIdx<-as.numeric(which(names(setupRun)=="Region"))
+  #initialize the data.frame with the control id
+  aD<-data.frame(id=0, name="control", minCount=0, maxCount=100, active=1, stringsAsFactors=FALSE)
+  #Parse other analytes
+  for(curRIdx in 1:length(regionIdx))
+  {
+    curNode<-setupRun[[regionIdx[[curRIdx]]]]
+    analyteInfo<-xmlAttrs(curNode)
+    aD<-rbind(aD, as.list(analyteInfo))
+  }
+  
+  ##
+  # exprs
+  ##
+  #Create list with 1elt per well
+  nFiles<-nrow(pData)
+  exprsList<-vector('list', nFiles)
+  cat("Looking for .lxb files in: ", path,"\n")
+  cntFiles<-0
+  for(fileIdx in 1:nFiles)
+  {
+    try(expr={
+    lxbPath<-paste(path, pData[,"filename"][fileIdx], sep="/")
+    #wID<-pData[,"well_id"][fileIdx]
+    #I suppress the warnings about the int byte size as they are relevant only for the time variable that is not used
+    suppressWarnings(lxb<-read.FCS(lxbPath))
+    exprsLxb<-exprs(lxb)
+
+    IDList<-sort(unique(exprsLxb[,"RID"]))
+    sampleList<-vector('list', length(IDList)) #create list of set size
+    for(idxID in 1:length(IDList))
+    {   
+      vals<-exprsLxb[which(exprsLxb[,"RID"]==IDList[idxID]), "RP1"]
+      sampleList[[idxID]]<-vals
+    }   
+    names(sampleList)<-IDList
+    exprsList[[fileIdx]]<-sampleList
+    cntFiles<-cntFiles+1
+    },#end expr
+    silent=TRUE)
+  }
+  if(cntFiles==0)
+  {
+    warning("None of the binary files referenced in '",filename,"' were found in '",path,"'  The exprs slot will be empty.\nMake sure that 'path' leads to the folder where the .lxb files are located.\n")
+  } else if(cntFiles<nFiles)
+  {
+    warning(nFiles-cntFiles, " files not found in '",path,"'\n")
+  }
+  names(exprsList)<-pData[,"well_id"]
+
+   return(new("BAMAObject", phenoData=pData, assayData=aD, summary=summary, exprs=exprsList))
+}
+
+
+read.Lxb<-function(files)
+{
+  nFiles<-length(files)
+  exprsList<-vector('list', nFiles)
+  for(fileIdx in 1:nFiles)
+  {
+    #I suppress the warnings about the int byte size as they are relevant only for the time variable that is not used
+    suppressWarnings(lxb<-read.FCS(files[[fileIdx]]))
+    exprsLxb<-exprs(lxb)
+
+    IDList<-sort(unique(exprsLxb[,"RID"]))
+    sampleList<-vector('list', length(IDList)) #create list of set size
+    for(idxID in 1:length(IDList))
+    {   
+      vals<-exprsLxb[which(exprsLxb[,"RID"]==IDList[idxID]), "RP1"]
+      sampleList[[idxID]]<-vals
+    }   
+    names(sampleList)<-IDList
+    exprsList[[fileIdx]]<-sampleList
+    }
+    names(exprsList)<-files
+    return(exprsList)
+}
+
+# read.data.csv
+#   INPUT: a file or a vector of filenames
+#   OUTPUT: a list of list that can be used as the exprs slot of a BAMAObject
+read.data.csv<-function(files)
+{
+  nFiles<-length(files)
+  #returns a list of list: 1 elt per file, one subelt per id
+  exprsList<-vector('list', nFiles)
+  #1 elt per file
+  for(fileIdx in 1:nFiles)
+  {
+    try(expr={
+    #get batch info
+    head<-scan(file=files[[fileIdx]], what="character", nlines=2)
+    #get data+colnames
+    con<-read.csv(files[[fileIdx]], skip=1, header=TRUE)
+
+    #get the ids 
+    RIDList<-sort(unique(con[,"RID"]))
+    nID<-length(RIDList)
+    beadList<-vector('list', nID)
+    #1 sub-elt per id
+    for(idIdx in 1:nID)
+    {
+      #get the RP1 for each id
+      beadList[[idIdx]]<-con[which(con[,"RID"]==RIDList[idIdx]), "RP1"]
+    }
+    names(beadList)<-RIDList #Names = RID
+    exprsList[[fileIdx]]<-beadList
+    }, silent=TRUE)#end try
+  }
+  names(exprsList)<-files #Names = filenames #TODO: change that to Batch Name
+  return(exprsList)
+}
+
+# read.mapping.csv
+#   INPUT: a filename
+#   OUTPUT: 
+read.mapping.xPONENT<-function(file)
+{
+  con<-file(file, "r")
+  rl<-readLines(con, warn=FALSE)#A character vector 1char/line
+  close(con)
+
+  #cleanup the output
+  rl2<-gsub("\"", "", rl) #no quotes
+  #Look for dataType
+  infoLines<-which(substr(rl2,1,8)=="DataType")
+  #Get next empty line
+  emptyLines<-which(rl2=="")
+
+  #IMPORTANTS dataTypes: Units (match bid/analytes), median (same as Net MFI and avg net MFI), count, Dilution factor
+  #Header is at +1
+  #Data starts at +2, ends at -1
+  dataTypes<-substr(rl2[infoLines],11, nchar(rl2[infoLines]))
+  #TODO: Loop that
+  MFILine<-infoLines[which(dataTypes=="Median")]
+  MFInextEmptyLine<-emptyLines[which(emptyLines-MFILine>0)[1]]
+  CountLine<-infoLines[which(dataTypes=="Count")]
+  CountnextEmptyLine<-emptyLines[which(emptyLines-CountLine>0)[1]]
+  DFLine<-infoLines[which(dataTypes=="Dilution Factor")]
+  DFnextEmptyLine<-emptyLines[which(emptyLines-DFLine>0)[1]]
+  analytesLine<-infoLines[which(dataTypes=="Units")]
+  analytesnextEmptyLine<-emptyLines[which(emptyLines-analytesLine>0)[1]]
+
+  #assayData
+  analytesCSV<-read.csv(file, skip=analytesLine, nrows=analytesnextEmptyLine-3-analytesLine, header=TRUE)
+  analytesCSV<-analytesCSV[,2:ncol(analytesCSV)]
+  aD<-data.frame(id=as.numeric(analytesCSV[1,]), name=colnames(analytesCSV)) #R#Should I add id=0 : control
+
+  #summary
+  MFICSV<-read.csv(file, skip=MFILine, nrows=MFInextEmptyLine-2-MFILine, header=TRUE)
+  well_ids<-sapply(MFICSV[,1], .loc2well, USE.NAMES=FALSE)
+  MFICSV<-MFICSV[,3:(ncol(MFICSV)-1)]
+  CountCSV<-read.csv(file, skip=CountLine, nrows=CountnextEmptyLine-2-CountLine, header=TRUE)
+  CountCSV<-CountCSV[,3:(ncol(CountCSV)-1)]
+  DFCSV<-read.csv(file, skip=DFLine, nrows=DFnextEmptyLine-2-DFLine, header=TRUE)
+  DFCSV<-DFCSV[,3]
+  #for each row: get DF, loop on analytes MFI/cnt
+  for(rowIdx in 1:nrow(MFICSV))
+  {
+    wid<-well_ids[rowIdx]
+    tmpdf<-data.frame(name=colnames(MFICSV), well_id=wid, MFI=as.numeric(MFICSV[rowIdx,]), count=as.numeric(CountCSV[rowIdx,]), DF=DFCSV[rowIdx])
+    if(rowIdx==1)
+      summary<-tmpdf
+    else
+      summary<-rbind(summary,tmpdf) 
+  }
+
+  return(list(summary=summary, assayData=aD))
+}
+
+# loc2well
+#   INPUT: A location like 1(1,A1)
+#   OUTPUT: A well_id
+.loc2well<-function(location)
+{
+  ss<-unlist(strsplit(as.character(location), split=","))[2]
+  well_id<-substr(ss, 1, nchar(ss)-1)
+  if(is.na(well_id))
+    warning("Invalid location, well_id will be NA")
+  return(well_id)
+}
+
+#
+#   INPUT: A BAMAObject
+#   OUTPUT: 
+SCF<-function(object, map)
+{
+  #read the map to get control wells and expected values
+  #then read the actual MFI in exprs
+  #return SC (w/e that means)
+  
+  MFIs<-lapply(object@exprs, function(x){lapply(x, median)} )
+  
+}
+
+read.luminex<-function(mapping=NULL, path="./")
+{
+  if(mapping==NULL)
+  {
+    #TODO: try reading lxb in path and make a deefault aD/pD anc calculate the summary
+  }
+  ext<-.getExt(mapping)
+  if(ext=="lxd")
+    return(read.Lxd(mapping, path))
+  else if(ext=="csv")
+  {
+    #.getxPONENTVersion
+    map<-read.mapping.xPONENT(mapping)
+    nWell<-length(levels(map$summary$well_ID))
+    data.csv<-c()
+    for(file in list.files(path))
+    {
+      fExt<-.getExt(file)
+      if(fExt=="csv")
+      {
+        data.csv<-c(data.csv, paste(path,file,sep="/"))
+      }
+    }
+    exprs<-read.data.csv(data.csv)
+    #TODO: check that they are all there and send warnings
+    phenoData<-.makePhenoData(data.csv) #Messy when some csv in the path aren't exprs
+    names(exprs)<-phenoData[match(names(exprs), phenoData[["filename"]]),"well_id"]
+    #name exprs with wellID instead of filename
+    #create object and return
+    object<-new("BAMAObject", phenoData=phenoData, assayData=map$assayData, summary=map$summary, exprs=exprs)
+  } 
+}
+
+# .getExt
+#   INPUT: A filename
+#   OUTPUT: A character
+.getExt<-function(filename)
+{
+  ext<-substr(filename, nchar(filename)-2, nchar(filename))
+  #TODO: if csv, check which xPo version, then return a char to select which read meth should be used.
+  return(ext)
+}
+
+# .makePhenoData
+#   INPUT: A character vector
+#   OUTPUT: A data.frame that can be used for the pData slot
+.makePhenoData<-function(fileList)
+{
+  ssplit<-strsplit(fileList, split="_")
+  endFName<-unlist(lapply(ssplit, function(x){x[[length(x)]]}))
+  well_id<-substr(endFName, 1, nchar(endFName)-4)
+  phenoData<-data.frame(well_id=well_id, filename=fileList)
+  return(phenoData)
+}
+
