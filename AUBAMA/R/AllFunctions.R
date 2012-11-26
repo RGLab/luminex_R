@@ -15,7 +15,7 @@ read.Lxd<-function(filename, path="./")
   for(curWidx in 1:length(widx))
   {
     #retrieve some well info
-    #TODO: parse <LocName> to put a name on each well
+    ##TODO: parse <LocName> to put a name on each well
     curNode<-plate[[widx[[curWidx]]]]
     curWellInfo<-xmlAttrs(curNode)
     wellName<-paste(platerows[[as.integer(curWellInfo[["row"]])+1]], curWellInfo[["col"]], sep="")
@@ -54,7 +54,7 @@ read.Lxd<-function(filename, path="./")
   ## 
   setup<-root[[which(names(root)=="Setup")[1]]] #setup
   setupRun<-root[[which(names(root)=="Setup")[2]]] #setupRun
-  #TODO: which run is what?
+  ##TODO: which run is what?
   gateInfo<-xmlAttrs(setupRun[["SetGate"]])
   regionIdx<-as.numeric(which(names(setupRun)=="Region"))
   #initialize the data.frame with the control id
@@ -189,7 +189,7 @@ read.mapping.xPONENT<-function(file)
   #Header is at +1
   #Data starts at +2, ends at -1
   dataTypes<-substr(rl2[infoLines],11, nchar(rl2[infoLines]))
-  #TODO: Loop that
+  ##TODO: Loop that
   MFILine<-infoLines[which(dataTypes=="Median")]
   MFInextEmptyLine<-emptyLines[which(emptyLines-MFILine>0)[1]]
   CountLine<-infoLines[which(dataTypes=="Count")]
@@ -255,7 +255,7 @@ read.luminex<-function(mapping=NULL, path="./")
 {
   if(mapping==NULL)
   {
-    #TODO: try reading lxb in path and make a deefault aD/pD anc calculate the summary
+    ##TODO: try reading lxb in path and make a deefault aD/pD anc calculate the summary
   }
   ext<-.getExt(mapping)
   if(ext=="lxd")
@@ -275,7 +275,7 @@ read.luminex<-function(mapping=NULL, path="./")
       }
     }
     exprs<-read.data.csv(data.csv)
-    #TODO: check that they are all there and send warnings
+    ##TODO: check that they are all there and send warnings
     phenoData<-.makePhenoData(data.csv) #Messy when some csv in the path aren't exprs
     names(exprs)<-phenoData[match(names(exprs), phenoData[["filename"]]),"well_id"]
     #name exprs with wellID instead of filename
@@ -305,4 +305,38 @@ read.luminex<-function(mapping=NULL, path="./")
   phenoData<-data.frame(well_id=well_id, filename=fileList)
   return(phenoData)
 }
+
+
+##TODO: Function to read our specified mapping format (csv or xls wld be OK)
+#
+#   INPUT: Read a mapping file
+#   OUTPUT:
+read.pheno.file<-function(file)
+{
+  pD<-read.csv(file)
+}
+
+
+# getWellName
+#   INPUT: int row, col;
+#   OUTPUT: well_id
+getWellName<-function(row, col)
+{
+  if(row < 1 | col < 1)
+    stop("A well cannot have a NULL or negative row or column")
+  if(row > 8 | col > 12)
+    warning("The number of rows or column is too big for a standard 96 wells plate")
+  return(paste(LETTERS[row], col, sep=""))
+}
+
+makeMapping<-function(folder)
+{
+  files<-list.files(folder)
+  wells<-gsub(".csv", "", sapply(files,function(x){unlist(strsplit(x, split=c("_")))[[3]]} ))
+  cols<-cols<-substr(wells,2,nchar(wells))
+  rows<-substr(wells,1,1)
+  rows<-sapply(rows, function(x) {which(LETTERS==x)} )
+  df<-data.frame(filename=files, row=rows, col=cols, row.names=wells)
+}
+
 

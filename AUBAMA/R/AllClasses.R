@@ -1,4 +1,6 @@
-
+#
+#  Class to store information from BAMA experiment
+#
 setClass("BAMAObject",
         representation=representation(
                 phenoData="data.frame",

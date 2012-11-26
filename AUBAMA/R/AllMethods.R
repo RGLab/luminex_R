@@ -72,7 +72,7 @@ setAs("BAMAObject", "data.frame", function(from){
       BIDVec<-c(BIDVec, rep(assayData(from)[analyte,"ID"], length(fluo)))
       sampleVec<-c(sampleVec, rep(as.character(pData(from)[sample,"ID"]), length(fluo)))
     }
-  #TODO: lapply (ies?)
+  ##TODO: lapply (ies?)
   }
   to<-data.frame(BID=BIDVec, RP1=RP1Vec, Well=sampleVec)
   return(to)
@@ -87,18 +87,28 @@ setGeneric("getStdCurv", function(object, ...) standardGeneric("getStdCurv"))
 setMethod("getStdCurv", "BAMAObject", function(object, file)
 {
   stdCtrls<-c(SB=0.0, S1=1.22, S2=4.88, S3=19.53, S4=78.13, S5=312.50, S6=1250.0, S7=5000.0) #pg/L
+  #Read the crappy assay_template in xls file
   tplate<-read.xls(file, skip=2, nrows=8)
   rownames(tplate)<-tplate[,1]
   tplate<-tplate[,2:13]
   #Cherche well_id - control
-  #check exprs in ctrl
   ctrlCoords<-sapply(names(stdCtrls), function(x){
 	coords<-which(tplate==x, arr.ind=TRUE)
 	paste(LETTERS[coords[1]],coords[2],sep="")
 	})
-  ctrlFName<-sapply(ctrlCoords, function(x){
-	pData(obj)[which(pData(obj)==x),"filename"]
-	})
+  #need a list of data.frame with cols conc et mfi (len(list)= nAnalytes)
 
   return(res)
 })
+
+fitCurve<-function(df)
+{
+  #From http://www.miraibio.com/blog/2009/02/5-pl-logistic-regression/
+  #F(x) = A + (D/(1+(X/C)^B)^E)
+    #A is the MFI/RLU value for the minimum asymptote
+    #B is the Hill slope
+    #C is the concentration at the inflection point
+    #D is the MFI/RLU value for the maximum asymptote
+    #E is the asymmetry factor
+  formula<-mfi ~ A+(D/(1+(conc/C)^B)^E) 
+}

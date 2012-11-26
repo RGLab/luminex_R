@@ -1,5 +1,8 @@
 #AUBAMA NAMESPACE
 
+#gdata
+importFrom(gdata, read.xls)
+
 #XML
 importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
 
@@ -8,5 +11,5 @@ importMethodsFrom(flowCore, pData, exprs)
 importClassesFrom(flowCore, flowFrame, flowSet)
 
 export("read.luminex", "read.Lxd", "read.Lxb", "read.mapping.xPONENT", "read.data.csv")
-exportMethods("show", "pData", "assayData", "exprs", "coerce", "getMFI")
+exportMethods("show", "pData", "assayData", "exprs", "summary", "coerce", "getMFI")
 exportClasses("BAMAObject")
