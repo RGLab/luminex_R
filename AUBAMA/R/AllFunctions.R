@@ -255,7 +255,8 @@ read.luminex<-function(mapping=NULL, path="./")
 {
   if(mapping==NULL)
   {
-    ##TODO: try reading lxb in path and make a deefault aD/pD anc calculate the summary
+    warning("You have not specified a mapping file, looking for data files in '",path,"'\n")
+    ##TODO: try reading lxb in path and make a deefault aD/pD and calculate the summary
   }
   ext<-.getExt(mapping)
   if(ext=="lxd")
@@ -332,11 +333,18 @@ getWellName<-function(row, col)
 makeMapping<-function(folder)
 {
   files<-list.files(folder)
-  wells<-gsub(".csv", "", sapply(files,function(x){unlist(strsplit(x, split=c("_")))[[3]]} ))
-  cols<-cols<-substr(wells,2,nchar(wells))
+  wells<-gsub(".csv", "", sapply(files,function(x){ul<-unlist(strsplit(x, split=c("_"))); return(ul[[length(ul)]])} ))
+  cols<-as.numeric(substr(wells,2,nchar(wells)))
   rows<-substr(wells,1,1)
-  rows<-sapply(rows, function(x) {which(LETTERS==x)} )
+  rows<-as.numeric(sapply(rows, function(x) {which(LETTERS==x)} ))
   df<-data.frame(filename=files, row=rows, col=cols, row.names=wells)
+  df <- df[with(df, order(row, col)), ]
+  ##grp_idx: to match case with control
+  ##type: case/ctrl/std/other ctrls
+  ##dil: dilution for stdrds
+  ##exp_conc: expected conc for stdrds
+  ## Is it realistic to make defaults for that? Can I have a simple user input to specify that?:w
+  
 }
 
 
