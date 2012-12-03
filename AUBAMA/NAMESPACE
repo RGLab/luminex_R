@@ -1,4 +1,4 @@
-#AUBAMA NAMESPACE
+#BAMAR NAMESPACE
 
 #gdata
 importFrom(gdata, read.xls)
@@ -6,10 +6,21 @@ importFrom(gdata, read.xls)
 #XML
 importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
 
+#Tools
+importFrom(tools,file_ext)
+
 #flowCore stuff
 importMethodsFrom(flowCore, pData, exprs)
 importClassesFrom(flowCore, flowFrame, flowSet)
 
+# Import stuff from Biobase
+importClassesFrom(Biobase,AnnotatedDataFrame)
+importMethodsFrom(Biobase,pData,featureData,fData)
+
+# Import from reshape2
+# Melt is an S3 method
+
+
 export("read.luminex", "read.Lxd", "read.Lxb", "read.mapping.xPONENT", "read.data.csv")
-exportMethods("show", "pData", "assayData", "exprs", "summary", "coerce", "getMFI")
-exportClasses("BAMAObject")
+exportMethods("show", "pData", "featureData", "exprs", "summary", "coerce", "getMFI", "melt")
+exportClasses("BAMAset","BAMAsummary")

@@ -1,114 +1,109 @@
 # show method:
 #   Shows class, slots, number of analytes, total number of measures
 #
-setMethod("show", "BAMAObject", function(object){
-  cat("An object of class BAMAObject with",nrow(assayData(object)),"analytes:","\n")
-  cat("\t", as.character(head(assayData(object)$name, 3)),"...", as.character(tail(assayData(object)$name, 3)),"\n")
+setMethod("show", "BAMAset", function(object){
+  cat("An object of class BAMAset with",nrow(featureData(object)),"analytes:","\n")
+  cat("\t", as.character(head(featureData(object)$name, 3)),"...", as.character(tail(featureData(object)$name, 3)),"\n")
   cat(length(unlist(exprs(object), use.names=FALSE)), "measures of expression in", nrow(pData(object)),"wells.","\n")
-  cat("And slots:", names(getSlots("BAMAObject")),"\n")
+  cat("And slots:", names(getSlots("BAMAset")),"\n")
 })
 
 #TODO: Add setters
 
 # pData method:
 #   phenoData accessor
-setMethod("pData", "BAMAObject", function(object){
-  return(object@phenoData)
+setMethod("pData", "BAMAset", function(object){
+  return(pData(object@phenoData))
 })
 
-# assayData
-#   assayData accessor
-setGeneric("assayData", function(object) standardGeneric("assayData"))
-setMethod("assayData", "BAMAObject", function(object){
-  return(object@assayData)
+
+## contains information about analytes
+setMethod("fData", "BAMAset", function(object){
+  return(pData(object@featureData))
 })
 
-# summary
-#   assayData accessor
-setMethod("summary", "BAMAObject", function(object){
-  return(object@summary)
-})
-
-# exprs method:
-#   exprs accessor
-setMethod("exprs", "BAMAObject", function(object){
+# exprs accessor for bead level data a la eSet
+setMethod("exprs", "BAMAset", function(object){
   return(object@exprs)
 })
 
-# getMFI method
-#   Calculates the MFI for a BAMAObject
-#   OUTPUT: A matrix with analytes as rows and wells as columns
-setGeneric("getMFI", function(object) standardGeneric("getMFI"))
-setMethod("getMFI", "BAMAObject", function(object){
-  matMFI<-sapply(exprs(object), function(x){sapply(x, median)})
-  return(matMFI)
+# Subset method to subset a la eSet
+setMethod("[","BAMAset",
+          function(x,i,j,..., drop=FALSE)
+          {
+            if(!missing(i))
+            {
+              #Subset the analytes
+              bdata<-exprs(x)[i]
+              #Subset the samples
+              bdata<-lapply(exprs(x),"[",j)              
+            }
+            else
+            {
+              #Subset the samples              
+              bdata<-lapply(exprs(x),"[",j)              
+            }            
+            newSet<-new('BAMAset'
+                        ,exprs=bdata
+                        ,phenoData=BAMAset@phenoData[,j]
+                        ,featureData=BAMAset@featureData[i,])
+            newSet            
+          })
+
+# I add the pheno and feature information by default we could add an option for this
+# Need to sort this out with reshape2
+# Also needs some work
+setGeneric("melt",function(x,...){
+  standardGeneric("melt")
 })
 
-# subset method
-#   subsets the object for one sample
-subset.BAMAObject<-function(object, sample){
-  pD<-pData(object)[which(pData(object)$ID==sample),]
-  aD<-assayData(object)
-  exprs<-list(exprs(object)[[sample]])
-  names(exprs)<-sample #so the exprs retains it's named list of lists structure
-  nBama<-new("BAMAObject", phenoData=pD, assayData=aD, exprs=exprs)
-}
 
-# as.data.frame method
-#   Gather all available information into a big data.frame
-setAs("BAMAObject", "data.frame", function(from){
-  #all info is actually available from @exprs
-  nSample<-nrow(pData(from))
-  nAnalytes<-nrow(assayData(from))
-  sampleVec<-c()
-  BIDVec<-c()
-  RP1Vec<-c()
-  for(sample in 1:nSample)
+setMethod("melt","BAMAset",
+function(x)
   {
-    for(analyte in 1:nAnalytes)
-    {
-      fluo<-exprs(from)[[sample]][[analyte]]
-      RP1Vec<-c(RP1Vec,fluo)
-      BIDVec<-c(BIDVec, rep(assayData(from)[analyte,"ID"], length(fluo)))
-      sampleVec<-c(sampleVec, rep(as.character(pData(from)[sample,"ID"]), length(fluo)))
-    }
-  ##TODO: lapply (ies?)
-  }
-  to<-data.frame(BID=BIDVec, RP1=RP1Vec, Well=sampleVec)
-  return(to)
+  # Use the melt function in reshape2
+  # This generates a dataframe analyte, sample, intensity
+  df<-reshape2::melt(exprs(x))
+  names(df)<-c("intensity","analyte","filename")
+
+#   l.sample<-length(exprs(x))
+#   l.analyte<-length(exprs(x)[[1]])
+#   l.bead.analyte<-sapply(exprs(x),function(x)sum(sapply(x,length)))
+#   
+#   pd.long<-sapply(1:l.sample,function(i,x,length)sapply(x[i,],rep,length[i]),length=l.bead.analyte,x=pData(x))                  
+#   pd.long<-as.data.frame(do.call("rbind",pd.long))
+#   
+#   # Combine data and metadata
+#   df<-cbind(df,pd.long)  
+
+  
+  df<-merge(df,pData(x),by="filename")
+  df<-merge(df,fData(x),by="analyte")
+  return(df)
+  
 })
 
-as.data.frame.BAMAObject<-function(from) { return(as(from, "BAMAObject")) }
-
-
-# getStdCurv method
-#   Computes the SC for a bamaobject
-setGeneric("getStdCurv", function(object, ...) standardGeneric("getStdCurv"))
-setMethod("getStdCurv", "BAMAObject", function(object, file)
-{
-  stdCtrls<-c(SB=0.0, S1=1.22, S2=4.88, S3=19.53, S4=78.13, S5=312.50, S6=1250.0, S7=5000.0) #pg/L
-  #Read the crappy assay_template in xls file
-  tplate<-read.xls(file, skip=2, nrows=8)
-  rownames(tplate)<-tplate[,1]
-  tplate<-tplate[,2:13]
-  #Cherche well_id - control
-  ctrlCoords<-sapply(names(stdCtrls), function(x){
-	coords<-which(tplate==x, arr.ind=TRUE)
-	paste(LETTERS[coords[1]],coords[2],sep="")
-	})
-  #need a list of data.frame with cols conc et mfi (len(list)= nAnalytes)
-
-  return(res)
-})
-
-fitCurve<-function(df)
-{
-  #From http://www.miraibio.com/blog/2009/02/5-pl-logistic-regression/
-  #F(x) = A + (D/(1+(X/C)^B)^E)
-    #A is the MFI/RLU value for the minimum asymptote
-    #B is the Hill slope
-    #C is the concentration at the inflection point
-    #D is the MFI/RLU value for the maximum asymptote
-    #E is the asymmetry factor
-  formula<-mfi ~ A+(D/(1+(conc/C)^B)^E) 
-}
+setMethod("melt","BAMAsummary",
+          function(x)
+          {
+            # Use the melt function in reshape2
+            # This generates a dataframe analyte, sample, intensity
+            df<-reshape2::melt(exprs(x))
+            
+            names(df)<-c("analyte","filename",tolower(x@unit))            
+            #l.sample<-ncol(x)
+            #l.analyte<-nrow(x)
+            
+            
+#             pd.long<-apply(pData(x),1,rep,l.analyte)
+#             pd.long<-lapply(1:l.sample,function(i,x,length)sapply(x[i,],rep,length),length=l.analyte,x=pData(x))
+#             pd.long<-as.data.frame(do.call("rbind",pd.long))
+#             
+#             # Combine data and metadata
+#             df<-cbind(df,pd.long)  
+#            
+            ## merge all information
+            df<-merge(df,pData(x),by="filename")
+            df<-merge(df,fData(x),by="analyte")
+            return(df)
+          })

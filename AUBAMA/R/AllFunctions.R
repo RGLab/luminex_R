@@ -1,3 +1,6 @@
+#----------
+#MasterPlex
+
 # read.Lxd
 #   parse .lxd files to retrive assay/phenoData and MFI/count/mean/trimStuff
 read.Lxd<-function(filename, path="./")
@@ -6,7 +9,7 @@ read.Lxd<-function(filename, path="./")
   root<-xmlRoot(lxd)
 
   plate<-root[[which(names(root)=="Plate")]] #make a copy of the tree from the selected node
-  platerows<-c("A","B","C","D","E","F","G","H")
+  platerows<-LETTERS[1:8]
 
   wVec<-c()
   lxbVec<-c()
@@ -134,177 +137,80 @@ read.Lxb<-function(files)
     return(exprsList)
 }
 
-# read.data.csv
-#   INPUT: a file or a vector of filenames
-#   OUTPUT: a list of list that can be used as the exprs slot of a BAMAObject
-read.data.csv<-function(files)
+#--------
+# xPONENT
+# Read raw data
+.read.bd.xPONENT<-function(path)
 {
-  nFiles<-length(files)
-  #returns a list of list: 1 elt per file, one subelt per id
-  exprsList<-vector('list', nFiles)
-  #1 elt per file
-  for(fileIdx in 1:nFiles)
-  {
-    try(expr={
-    #get batch info
-    head<-scan(file=files[[fileIdx]], what="character", nlines=2)
-    #get data+colnames
-    con<-read.csv(files[[fileIdx]], skip=1, header=TRUE)
+  files<-list_files_with_exts(path,"csv")
 
-    #get the ids 
-    RIDList<-sort(unique(con[,"RID"]))
-    nID<-length(RIDList)
-    beadList<-vector('list', nID)
-    #1 sub-elt per id
-    for(idIdx in 1:nID)
-    {
-      #get the RP1 for each id
-      beadList[[idIdx]]<-con[which(con[,"RID"]==RIDList[idIdx]), "RP1"]
-    }
-    names(beadList)<-RIDList #Names = RID
-    exprsList[[fileIdx]]<-beadList
-    }, silent=TRUE)#end try
-  }
-  names(exprsList)<-files #Names = filenames #TODO: change that to Batch Name
+  exprsList<-lapply(files,function(x){con<-read.csv(x, skip=1, header=TRUE);beadList<-split(con[,"RP1"],con[,"RID"]);return(beadList);})
   return(exprsList)
 }
 
-# read.mapping.csv
-#   INPUT: a filename
-#   OUTPUT: 
-read.mapping.xPONENT<-function(file)
+# Read mapping
+.read.mapping.xPONENT<-function(file)
 {
-  con<-file(file, "r")
-  rl<-readLines(con, warn=FALSE)#A character vector 1char/line
-  close(con)
+  rl<-readLines(file, warn=FALSE)#A character vector 1char/line
 
-  #cleanup the output
   rl2<-gsub("\"", "", rl) #no quotes
-  #Look for dataType
-  infoLines<-which(substr(rl2,1,8)=="DataType")
-  #Get next empty line
-  emptyLines<-which(rl2=="")
-
-  #IMPORTANTS dataTypes: Units (match bid/analytes), median (same as Net MFI and avg net MFI), count, Dilution factor
-  #Header is at +1
-  #Data starts at +2, ends at -1
-  dataTypes<-substr(rl2[infoLines],11, nchar(rl2[infoLines]))
-  ##TODO: Loop that
-  MFILine<-infoLines[which(dataTypes=="Median")]
-  MFInextEmptyLine<-emptyLines[which(emptyLines-MFILine>0)[1]]
-  CountLine<-infoLines[which(dataTypes=="Count")]
-  CountnextEmptyLine<-emptyLines[which(emptyLines-CountLine>0)[1]]
-  DFLine<-infoLines[which(dataTypes=="Dilution Factor")]
-  DFnextEmptyLine<-emptyLines[which(emptyLines-DFLine>0)[1]]
-  analytesLine<-infoLines[which(dataTypes=="Units")]
-  analytesnextEmptyLine<-emptyLines[which(emptyLines-analytesLine>0)[1]]
-
-  #assayData
-  analytesCSV<-read.csv(file, skip=analytesLine, nrows=analytesnextEmptyLine-3-analytesLine, header=TRUE)
-  analytesCSV<-analytesCSV[,2:ncol(analytesCSV)]
-  aD<-data.frame(id=as.numeric(analytesCSV[1,]), name=colnames(analytesCSV)) #R#Should I add id=0 : control
-
-  #summary
-  MFICSV<-read.csv(file, skip=MFILine, nrows=MFInextEmptyLine-2-MFILine, header=TRUE)
-  well_ids<-sapply(MFICSV[,1], .loc2well, USE.NAMES=FALSE)
-  MFICSV<-MFICSV[,3:(ncol(MFICSV)-1)]
-  CountCSV<-read.csv(file, skip=CountLine, nrows=CountnextEmptyLine-2-CountLine, header=TRUE)
-  CountCSV<-CountCSV[,3:(ncol(CountCSV)-1)]
-  DFCSV<-read.csv(file, skip=DFLine, nrows=DFnextEmptyLine-2-DFLine, header=TRUE)
-  DFCSV<-DFCSV[,3]
-  #for each row: get DF, loop on analytes MFI/cnt
-  for(rowIdx in 1:nrow(MFICSV))
-  {
-    wid<-well_ids[rowIdx]
-    tmpdf<-data.frame(name=colnames(MFICSV), well_id=wid, MFI=as.numeric(MFICSV[rowIdx,]), count=as.numeric(CountCSV[rowIdx,]), DF=DFCSV[rowIdx])
-    if(rowIdx==1)
-      summary<-tmpdf
-    else
-      summary<-rbind(summary,tmpdf) 
-  }
-
-  return(list(summary=summary, assayData=aD))
+  # Bead ID-Analyte mapping  
+  position<-grep("DataType:,Units",rl2)
+  analyte<-unlist(strsplit(rl2[position+1],","))[-1]
+  bid<-unlist(strsplit(rl2[position+2],","))[-1]
+  df<-data.frame(analyte=analyte,bid=bid)
+  return(featureData=as(df,'AnnotatedDataFrame'))
 }
 
-# loc2well
-#   INPUT: A location like 1(1,A1)
-#   OUTPUT: A well_id
-.loc2well<-function(location)
-{
-  ss<-unlist(strsplit(as.character(location), split=","))[2]
-  well_id<-substr(ss, 1, nchar(ss)-1)
-  if(is.na(well_id))
-    warning("Invalid location, well_id will be NA")
-  return(well_id)
-}
-
-#
-#   INPUT: A BAMAObject
-#   OUTPUT: 
-SCF<-function(object, map)
-{
-  #read the map to get control wells and expected values
-  #then read the actual MFI in exprs
-  #return SC (w/e that means)
-  
-  MFIs<-lapply(object@exprs, function(x){lapply(x, median)} )
-  
-}
-
-read.luminex<-function(mapping=NULL, path="./")
-{
-  if(mapping==NULL)
+# Function to combine raw and mapping data
+read.luminex<-function(mapping.file=NULL, path="./")
+{  
+  if(is.null(mapping.file))
   {
     warning("You have not specified a mapping file, looking for data files in '",path,"'\n")
     ##TODO: try reading lxb in path and make a deefault aD/pD and calculate the summary
   }
-  ext<-.getExt(mapping)
+  ext<-file_ext(mapping.file)
   if(ext=="lxd")
-    return(read.Lxd(mapping, path))
+    return(read.Lxd(mapping.file, path))
   else if(ext=="csv")
   {
-    #.getxPONENTVersion
-    map<-read.mapping.xPONENT(mapping)
-    nWell<-length(levels(map$summary$well_ID))
-    data.csv<-c()
-    for(file in list.files(path))
-    {
-      fExt<-.getExt(file)
-      if(fExt=="csv")
-      {
-        data.csv<-c(data.csv, paste(path,file,sep="/"))
-      }
-    }
-    exprs<-read.data.csv(data.csv)
-    ##TODO: check that they are all there and send warnings
-    phenoData<-.makePhenoData(data.csv) #Messy when some csv in the path aren't exprs
-    names(exprs)<-phenoData[match(names(exprs), phenoData[["filename"]]),"well_id"]
-    #name exprs with wellID instead of filename
-    #create object and return
-    object<-new("BAMAObject", phenoData=phenoData, assayData=map$assayData, summary=map$summary, exprs=exprs)
-  } 
-}
-
-# .getExt
-#   INPUT: A filename
-#   OUTPUT: A character
-.getExt<-function(filename)
-{
-  ext<-substr(filename, nchar(filename)-2, nchar(filename))
-  #TODO: if csv, check which xPo version, then return a char to select which read meth should be used.
-  return(ext)
+    featureData<-.read.mapping.xPONENT(mapping.file)
+    # Read expression values
+    exprs<-.read.bd.xPONENT(path)
+    # Construct pheno data
+    phenoData<-.makePhenoData.xPONENT(mapping.file,path)
+    # Replace the names of the exprs object with the filename
+    # If need we could construct a methods names for BAMAset to use better names
+    
+    names(exprs)<-pData(phenoData)$filename
+    # Remove the outliers (bid not in the mapping file)        
+    # Renames the analyte and replace the bid by the bead name
+    exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))    
+    BAMAset<-new("BAMAset", phenoData=phenoData, featureData=featureData, exprs=exprs)
+  }
+  return(BAMAset)
 }
 
 # .makePhenoData
 #   INPUT: A character vector
 #   OUTPUT: A data.frame that can be used for the pData slot
-.makePhenoData<-function(fileList)
+.makePhenoData.xPONENT<-function(mapping.file,path)
 {
-  ssplit<-strsplit(fileList, split="_")
-  endFName<-unlist(lapply(ssplit, function(x){x[[length(x)]]}))
-  well_id<-substr(endFName, 1, nchar(endFName)-4)
-  phenoData<-data.frame(well_id=well_id, filename=fileList)
-  return(phenoData)
+  files<-list_files_with_exts(path, "csv", all.files = FALSE, full.names=FALSE)
+  # remove extension 
+  files<-sub("^([^.]*).*", "\\1",files)
+  # Plate information
+  # Plate
+  plate<-sub("^([^.]*).*", "\\1",mapping.file)
+  plate<-tail(unlist(strsplit(plate,"/")),1)
+  # Well (Assumes a standard file format)
+  # Need to check it's always the case
+  #well<-unlist(lapply(LETTERS[1:8],paste0,1:11))
+  well<-unlist(lapply(files,function(x){tail(strsplit(x,"_")[[1]],1)}))
+  
+  phenoData<-data.frame(filename=files,plate=rep(plate,length(well)),well=well)
+  return(as(phenoData,'AnnotatedDataFrame'))
 }
 
 
@@ -348,3 +254,15 @@ makeMapping<-function(folder)
 }
 
 
+### Summarize to MFIs
+
+BAMAsummarize<-function(from,type="MFI")
+        {
+        mat<-sapply(exprs(from),sapply,median)
+        mfiSet<-new("BAMAsummary")
+        exprs(mfiSet)<-mat
+        pData(mfiSet)<-pData(from)
+        fData(mfiSet)<-fData(from)
+        mfiSet@unit="MFI"
+        mfiSet
+      }
