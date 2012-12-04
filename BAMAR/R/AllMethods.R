@@ -2,8 +2,8 @@
 #   Shows class, slots, number of analytes, total number of measures
 #
 setMethod("show", "BAMAset", function(object){
-  cat("An object of class BAMAset with",nrow(featureData(object)),"analytes:","\n")
-  cat("\t", as.character(head(featureData(object)$name, 3)),"...", as.character(tail(featureData(object)$name, 3)),"\n")
+  cat("An object of class BAMAset with",nrow(fData(object)),"analytes:","\n")
+  cat("\t", as.character(head(fData(object)$analyte, 3)),"...", as.character(tail(fData(object)$analyte, 3)),"\n")
   cat(length(unlist(exprs(object), use.names=FALSE)), "measures of expression in", nrow(pData(object)),"wells.","\n")
   cat("And slots:", names(getSlots("BAMAset")),"\n")
 })
@@ -45,8 +45,8 @@ setMethod("[","BAMAset",
             }            
             newSet<-new('BAMAset'
                         ,exprs=bdata
-                        ,phenoData=BAMAset@phenoData[,j]
-                        ,featureData=BAMAset@featureData[i,])
+                        ,phenoData=x@phenoData[j,]
+                        ,featureData=x@featureData[i,])
             newSet            
           })
 

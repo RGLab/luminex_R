@@ -60,7 +60,7 @@ df.sc<-lapply(df.split,function(x,n=100,weighted=FALSE,fct=LL.5())
 weighted=FALSE,fct=LL.5())
 df.sc<-as.data.frame(do.call("rbind",df.sc))
 
-ggplot(df.mfi.control)+geom_point(aes(y=mfi,x=concentration),size=2)+facet_wrap(~analyte,scale="free")+scale_x_log10()+scale_y_log10()+theme_bw()+geom_line(data=df.sc,aes(y=mfi,x=concentration),color="blue")
+ggplot(df.mfi.control)+geom_point(aes(y=mfi,x=concentration),size=2)+facet_wrap(~analyte)+scale_x_log10()+scale_y_log10()+theme_bw()+geom_line(data=df.sc,aes(y=mfi,x=concentration),color="blue")
 
 
 f5<-function(x,coef)

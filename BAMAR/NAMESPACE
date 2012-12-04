@@ -7,7 +7,7 @@ importFrom(gdata, read.xls)
 importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
 
 #Tools
-importFrom(tools,file_ext)
+importFrom(tools,file_ext, list_files_with_exts)
 
 #flowCore stuff
 importMethodsFrom(flowCore, pData, exprs)
@@ -21,6 +21,6 @@ importMethodsFrom(Biobase,pData,featureData,fData)
 # Melt is an S3 method
 
 
-export("read.luminex", "read.Lxd", "read.Lxb", "read.mapping.xPONENT", "read.data.csv")
-exportMethods("show", "pData", "featureData", "exprs", "summary", "coerce", "getMFI", "melt")
+export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
+exportMethods("show", "pData", "featureData", "exprs", "melt", "[")
 exportClasses("BAMAset","BAMAsummary")
