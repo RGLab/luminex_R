@@ -107,3 +107,60 @@ setMethod("melt","BAMAsummary",
             df<-merge(df,fData(x),by="analyte")
             return(df)
           })
+
+#--------
+# getFormulas
+# Returns the list of formulas for the BAMAsummary
+setGeneric("getFormulas", function(object) standardGeneric("getFormulas"))
+setMethod("getFormulas", "BAMAsummary",
+		function(object)
+		{
+		  df<-melt(object)
+		  df.ctrl<-subset(df, control==1)
+		  df.split<-split(df.ctrl, df.ctrl$analyte) #split wwith analyte as factor
+		  formulas.sc<-lapply(df.split, function(x){
+					  res<-drm(mfi ~ concentration, data=x,fct=LL.5())
+					  return(res$curve[[1]])
+				  })
+		  names(formulas.sc)<-names(df.split)
+		  formula(object)<-formulas.sc
+		})
+
+
+setGeneric("drawStdC", function(object, ...) standadGeneric("drawStdC"))
+setMethod("drawStdC", "BAMAsummary",
+		function(object)
+		{
+			n<-100
+			concentration<-exp(seq(0,log(max(pData(object)$concentration)),length.out=n))
+			df.sc<-lapply(formula(object), function(func){
+						mfi<-func(concentration)
+						df<-data.frame(concentration, mfi)
+					})
+			noms<-rep
+		})
+
+
+
+
+
+
+#--------
+# formula
+# getter
+setGeneric("formula", function(object, ...) standardGeneric("formula"))
+setMethod("formula", "BAMAsummary", function(object){return(object@formula)})
+#--------
+# formula<-
+# setter
+setGeneric("formula<-", function(object, value, ...) standardGeneric("formula<-"))
+setReplaceMethod("formula", "BAMAsummary", function(object, value){object@formula<-value; object})
+
+
+
+
+
+setGeneric("setest", function(li, ...) standardGeneric)
+setMethod("setest", "list", function(li){
+			li<-list(1,2,3)
+		})

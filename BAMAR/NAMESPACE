@@ -22,5 +22,6 @@ importMethodsFrom(Biobase,pData,featureData,fData)
 
 
 export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
-exportMethods("show", "pData", "featureData", "exprs", "melt", "[")
+exportMethods("show", "pData", "featureData", "exprs", "melt", "[",
+"formula", "formula<-", "addFormula")
 exportClasses("BAMAset","BAMAsummary")
