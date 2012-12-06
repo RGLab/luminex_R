@@ -1,5 +1,8 @@
 #BAMAR NAMESPACE
 
+#drc
+importFrom(drc, drm)
+
 #gdata
 importFrom(gdata, read.xls)
 
@@ -20,8 +23,14 @@ importMethodsFrom(Biobase,pData,featureData,fData)
 # Import from reshape2
 # Melt is an S3 method
 
+#ggplot2
+importFrom(ggplot2, ggplot, geom_point, geom_line, aes, facet_wrap, theme_bw, 
+scale_x_log10, scale_y_log10)
 
+
+######
+######
 export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
 exportMethods("show", "pData", "featureData", "exprs", "melt", "[",
-"formula", "formula<-", "addFormula")
+"formula", "formula<-", "getFormulas", "drawStdC", "getPercentRecov")
 exportClasses("BAMAset","BAMAsummary")
