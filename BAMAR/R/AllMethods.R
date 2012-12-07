@@ -126,23 +126,63 @@ setMethod("getFormulas", "BAMAsummary",
 		  formula(object)<-formulas.sc
 		})
 
-
+#--------
+# drawStdC
+# Returns the list of formulas for the BAMAsummary
 setGeneric("drawStdC", function(object, ...) standadGeneric("drawStdC"))
 setMethod("drawStdC", "BAMAsummary",
 		function(object)
 		{
+			if(length(formula(object))==0)
+				stop("The formula slot is empty. Run 'getFormulas'to add the formulas for this object.\n")
 			n<-100
 			concentration<-exp(seq(0,log(max(pData(object)$concentration)),length.out=n))
 			df.sc<-lapply(formula(object), function(func){
 						mfi<-func(concentration)
 						df<-data.frame(concentration, mfi)
 					})
-			noms<-rep
+#			browser()
+			analyte<-rep(names(formula(object)), each=n)
+			df.sc<-as.data.frame(do.call("rbind",df.sc))
+			df.sc<-cbind(analyte, df.sc)
+			
+			df<-melt(object)
+			df.ctrl<-subset(df, control==1)
+			ggplot(df.ctrl)+geom_point(aes(y=mfi,x=concentration),size=2)+facet_wrap(~analyte)+scale_x_log10()+scale_y_log10()+theme_bw()+geom_line(data=df.sc,aes(y=mfi,x=concentration),color="blue")
 		})
 
 
+#--------
+# getPercentRecov
+# Returns a d.f with mfi/conc/expected_conc/calculated_conc/percent_recovery BAMAsummary object
+setGeneric("getPercentRecov", function(object, ...) standardGeneric("getPercentRecov"))
+setMethod("getPercentRecov", "BAMAsummary",
+		function(object)
+		{
+			fct<-LL.5()
+#			weights=NULL
+			if(length(formula(object))==0)
+				stop("The formula slot is empty. Run 'getFormulas'to add the formulas for this object.\n")
+			df<-melt(object)
+			df<-subset(df, concentration!=0 & control==1, select=c("well", "analyte", "mfi", "concentration"))
 
-
+			df.split<-split(df,df$analyte)
+			res<-lapply(df.split,function(x)
+					{
+						weights<-1/log(x$mfi)^2
+						res<-drm(mfi ~ concentration, data=x,fct=fct,weights=weights)
+					})
+			
+			calc_conc<-numeric(nrow(df))
+			recov<-numeric(nrow(df))
+			for(idx in 1:nrow(df))
+			{
+				calc_conc[idx]<-res[[df[idx,"analyte"]]]$fct$inversion(df[idx,"mfi"], res[[df[idx,"analyte"]]]$parmMat)
+				recov[idx]<-calc_conc[idx]/df[idx,"concentration"]
+			}
+			ret<-cbind(df, calc_conc, p100recov=recov)
+			return(ret)
+		})
 
 
 #--------

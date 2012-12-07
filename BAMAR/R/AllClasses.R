@@ -14,3 +14,4 @@ setClass("BAMAset",
 
 setClass("BAMAsummary", contains="ExpressionSet", representation(unit="character",formula="list"))
 
+
