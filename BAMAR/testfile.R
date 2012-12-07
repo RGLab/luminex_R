@@ -32,38 +32,32 @@ df.mfi.control<-subset(df.mfi,control==1)
 ## Create a dataframe of standard curves
 
 df.split<-split(df.mfi.control,df.mfi.control$analyte)
-df.sc<-lapply(df.split,function(x,n=100,weighted=FALSE,fct=LL.5())
+df.sc<-lapply(df.split,function(x,n=100,fct=LL.5())
 {
-  if(weighted)
-  {
-    weights=1/log(x$mfi)^2
-  }
-  else
-  {
-    weights<-NULL
-  }
   concentration<-exp(seq(0,log(max(x$concentration)),length.out=n))
-#  coef<-drm(mfi ~ concentration, data=x,fct=fct,weights=weights)$coefficients
-#  b<-coef[1]
-#  c<-coef[2]
-#  d<-coef[3]
-#  e<-coef[4]
-#  f<-coef[5]  
-#  
-#  if(fct$name=="LL.5")
-#    e<-log(e)
-#  
-#  mfi<-c + (d-c)/(1+exp(b*(log(concentration)-e)))^f
-  res<-drm(mfi ~ concentration, data=x,fct=fct,weights=weights)
+  res<-drm(log(mfi) ~ concentration, data=x,fct=fct)
   mfi<-res$curve[[1]](concentration)
   df<-data.frame(analyte=rep(x$analyte[1],n),concentration,mfi)
   return(df)  
 },
-weighted=FALSE,fct=LL.5())
+fct=LL.5())
 df.sc<-as.data.frame(do.call("rbind",df.sc))
 
-ggplot(df.mfi.control)+geom_point(aes(y=mfi,x=concentration),size=2)+facet_wrap(~analyte)
-+scale_x_log10()+scale_y_log10()+theme_bw()+geom_line(data=df.sc,aes(y=mfi,x=concentration),color="blue")
+ggplot(df.mfi.control)+geom_point(aes(y=log(mfi),x=concentration),size=2)+facet_wrap(~analyte,scale="free")+scale_x_log10()+theme_bw()+geom_line(data=df.sc,aes(y=mfi,x=concentration),color="blue")
+
+
+df.split<-split(df.mfi.control,df.mfi.control$analyte)
+df.coef<-lapply(df.split,function(x,n=100,fct=LL.5())
+{
+  concentration<-exp(seq(0,log(max(x$concentration)),length.out=n))
+  res<-drm(log(mfi) ~ concentration, data=x,fct=fct)
+  coef<-coefficients(res)
+  df<-data.frame(analyte=rep(x$analyte[1],5),coefficient=letters[2:6],value=coef)
+  return(df)  
+},
+fct=LL.5())
+df.coef<-as.data.frame(do.call("rbind",df.sc))
+
 
 
 f5<-function(x,coef)
