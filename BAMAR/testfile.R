@@ -7,10 +7,12 @@ bama@phenoData@data$control<-pData(bama)$well%in%paste0(LETTERS[1:8],1)
 bama@phenoData@data$concentration<-1
 bama@phenoData@data$concentration[pData(bama)$control]<-rev(c(0.0, 1.22, 4.88, 19.53, 78.13, 312.50, 1250.0, 5000.0))
 
+
+
 bsum<-BAMAsummarize(bama)
-formula(bsum)<-getFormulas(bsum)
-drawStdC(bsum)
-p100<-getPercentRecov(bsum)
+
+ggplot_sc(bsum)
+
 
 ## Create dataframe for visualization
 #df<-melt(bama)
@@ -34,7 +36,7 @@ p100<-getPercentRecov(bsum)
 #df.mfi.control<-subset(df.mfi,control==1)
 #
 #
-### Create a dataframe of standard curves
+## Create a dataframe of standard curves
 #
 #df.split<-split(df.mfi.control,df.mfi.control$analyte)
 #df.sc<-lapply(df.split,function(x,n=100,weighted=FALSE,fct=LL.5())
@@ -71,46 +73,5 @@ p100<-getPercentRecov(bsum)
 #+scale_x_log10()+scale_y_log10()+theme_bw()+geom_line(data=df.sc,aes(y=mfi,x=concentration),color="blue")
 #
 #
-##percentRecov
-##Just use dfc mfi~conc and the inversion fct of the drm results
-#res<-lapply(df.split,function(x)
-#		{
-#			res<-drm(mfi ~ concentration, data=x,fct=fct,weights=weights)
-#		})
-#
-##For each row, do:
-#
-#
-#
-#recov<-numeric(nrow(df))
-#calc_conc<-numeric(nrow(df))
-#calc_conc<-numeric(15)
-#recov<-numeric(15)
-#for(i in 1:15)#nrow(dfc))
-#{
-#	calc_conc[i]<-res[[df[i,"analyte"]]]$fct$inversion(df[i,"mfi"], res[[df[i,"analyte"]]]$parmMat)
-#	recov[i]<-calc_conc[i]/df[i,"concentration"]
-#} ##Gotta remove the 0 first
-#
-#
-#
-#
-#
-#
-#
-#
-#f5<-function(x,coef)
-#{
-#  b<-coef[1]
-#  c<-coef[2]
-#  d<-coef[3]
-#  e<-coef[4]
-#  f<-coef[5]  
-#  return(c + (d-c)/(1+exp(b*(log(x)-log(e))))^f)
-#}
-#
-#
-## inverse = function (MFI,f, interval=c(0, 10000),...) {
-#  solution<-uniroot(function (x,MFI,...){f(x,...)-MFI}, interval, MFI,...)[1]
-#  return(solution)
-#}
+
+

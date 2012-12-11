@@ -1,6 +1,4 @@
-#
-#  Class to store information from BAMA experiment
-#
+#  #Bead level information
 setClass("BAMAset",
          representation=representation(
            ## Contains information about samples           
@@ -12,6 +10,9 @@ setClass("BAMAset",
            exprs="list")
          )
 
-setClass("BAMAsummary", contains="ExpressionSet", representation(unit="character",formula="list"))
+#setClass("BAMAsummary", contains="ExpressionSet", representation(unit="character",formula="list"))
+setClass("BAMAsummary", 
+		contains="ExpressionSet", 
+		representation(unit="character",formula="formula", fit="data.frame"))
 
 
