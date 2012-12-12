@@ -1,7 +1,7 @@
 #BAMAR NAMESPACE
 
 #drc
-importFrom(drc, drm)
+importFrom(drc, drm, LL.5)
 
 #gdata
 importFrom(gdata, read.xls)
@@ -28,9 +28,11 @@ importFrom(ggplot2, ggplot, geom_point, geom_line, aes, facet_wrap, theme_bw,
 scale_x_log10, scale_y_log10)
 
 
+
+
 ######
 ######
 export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
 exportMethods("show", "pData", "featureData", "exprs", "melt", "[",
-"formula", "formula<-", "getFormulas", "drawStdC", "getPercentRecov")
+	"ggplot_sc")
 exportClasses("BAMAset","BAMAsummary")

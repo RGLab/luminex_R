@@ -256,13 +256,57 @@ makeMapping<-function(folder)
 
 ### Summarize to MFIs
 
+#BAMAsummarize<-function(from,type="MFI")
+#        {
+#        mat<-sapply(exprs(from),sapply,median)
+#        mfiSet<-new("BAMAsummary", formula=as.formula("mfi ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
+#        exprs(mfiSet)<-mat
+#        pData(mfiSet)<-pData(from)
+#        fData(mfiSet)<-fData(from)
+#        mfiSet@unit="MFI"
+#        mfiSet
+#      }
+
 BAMAsummarize<-function(from,type="MFI")
-        {
-        mat<-sapply(exprs(from),sapply,median)
-        mfiSet<-new("BAMAsummary")
-        exprs(mfiSet)<-mat
-        pData(mfiSet)<-pData(from)
-        fData(mfiSet)<-fData(from)
-        mfiSet@unit="MFI"
-        mfiSet
-      }
+	  {
+		  mat<-sapply(exprs(from),sapply,median)
+		  mfiSet<-new("BAMAsummary", formula=as.formula("mfi ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
+		  exprs(mfiSet)<-mat
+		  pData(mfiSet)<-pData(from)
+		  fData(mfiSet)<-fData(from)
+		  mfiSet@unit="MFI"
+
+		  ##TODO: Potential args of the func
+		  #hard coded 5-PL & inv
+		  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(y - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
+		  
+
+		  #fitInfo
+		  df<-melt(mfiSet)
+		  df<-subset(df, concentration!=0 & control==1)
+		  df.split<-split(df, df$analyte)
+		  coeffs<-lapply(df.split, function(x){
+					  res<-drm(mfi ~ concentration, data=x,fct=LL.5())
+					  return(res$parmMat)
+				  })
+		  
+		  calc_conc<-p100rec<-b<-c<-d<-e<-f<-numeric(nrow(df))
+		  for(idx in 1:nrow(df))
+		  {
+			  calc_conc[idx]<-inv(df[idx,"mfi"], coeffs[[df[idx,"analyte"]]])
+			  p100rec[idx]<-calc_conc[idx]/df[idx,"concentration"]*100
+		  }
+		  li<-vector('list', 5)
+		  names(li)<-c('b','c','d','e','f')
+		  for(i in 1:5)
+		  {
+			  li[[i]]<-rep(sapply(coeffs, "[[", i), each=7)
+		  }
+		  df2<-cbind(df[,c("plate", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, li)
+		  mfiSet@fit<-df2
+		  
+		mfiSet
+	  }	  
+
+	  
+	  
