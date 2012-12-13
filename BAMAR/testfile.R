@@ -1,3 +1,4 @@
+library(BAMAR)
 # Read the data and create a bamaset object
 bama<-read.luminex(mapping="~/Dropbox/LENA P1/3-01-2012 LENA P1_20120301_145732.csv", path="~/Dropbox/LENA P1/3-01-2012 LENA P1_rcsv/")
 
@@ -7,7 +8,6 @@ bama@phenoData@data$control<-pData(bama)$well%in%paste0(LETTERS[1:8],1)
 bama@phenoData@data$concentration<-1
 bama@phenoData@data$concentration[pData(bama)$control]<-rev(c(0.0, 1.22, 4.88, 19.53, 78.13, 312.50, 1250.0, 5000.0))
 
-<<<<<<< HEAD
 # Create dataframe for visualization
 df<-melt(bama)
 
@@ -76,11 +76,8 @@ f5<-function(x,coef)
   solution<-uniroot(function (x,MFI,...){f(x,...)-MFI}, interval, MFI,...)[1]
   return(solution)
 }
-=======
-=======
 
 
->>>>>>> 0f9e9a07f3f1b290714ab3269a389e0894fe7835
 bsum<-BAMAsummarize(bama)
 
 ggplot_sc(bsum)
@@ -145,7 +142,7 @@ ggplot_sc(bsum)
 #+scale_x_log10()+scale_y_log10()+theme_bw()+geom_line(data=df.sc,aes(y=mfi,x=concentration),color="blue")
 #
 #
-<<<<<<< HEAD
+
 ##percentRecov
 ##Just use dfc mfi~conc and the inversion fct of the drm results
 #res<-lapply(df.split,function(x)
@@ -189,8 +186,3 @@ ggplot_sc(bsum)
 #  solution<-uniroot(function (x,MFI,...){f(x,...)-MFI}, interval, MFI,...)[1]
 #  return(solution)
 #}
->>>>>>> 9dffdda3e58778e6b425f513b843d81e833b6313
-=======
-
-
->>>>>>> 0f9e9a07f3f1b290714ab3269a389e0894fe7835
