@@ -18,7 +18,7 @@ importClassesFrom(flowCore, flowFrame, flowSet)
 
 # Import stuff from Biobase
 importClassesFrom(Biobase,AnnotatedDataFrame)
-importMethodsFrom(Biobase,pData,featureData,fData)
+importMethodsFrom(Biobase,pData,featureData,fData,"exprs<-")
 
 # Import from reshape2
 # Melt is an S3 method
@@ -33,6 +33,6 @@ scale_x_log10, scale_y_log10)
 ######
 ######
 export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
-exportMethods("show", "pData", "featureData", "exprs", "melt", "[",
-	"ggplot_sc")
+exportMethods("show", "pData", "featureData", "exprs", "fit",
+	"melt", "[", "ggplot_sc", "geom_sc")
 exportClasses("BAMAset","BAMAsummary")

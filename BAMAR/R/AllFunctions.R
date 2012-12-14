@@ -178,6 +178,21 @@ read.luminex<-function(mapping.file=NULL, path="./")
     featureData<-.read.mapping.xPONENT(mapping.file)
     # Read expression values
     exprs<-.read.bd.xPONENT(path)
+	# Fill missing analytes with NA
+	if(any(unlist(lapply(exprs, length))-1!=nrow(featureData)))
+	{
+		idx<-which(unlist(lapply(exprs, length))-1!=nrow(featureData))
+		for(i in 1:length(idx))
+		{
+			curExpr<-exprs[[idx[i]]]
+			missFeat<-pData(featureData[which(!featureData$bid %in% names(curExpr)),])$bid
+			curExpr<-c(curExpr, rep(NA, length(missFeat)))
+			names(curExpr)[(length(curExpr)-length(missFeat)+1):length(curExpr)]<-as.character(missFeat)
+			ord<-order(as.numeric(names(curExpr)))
+			exprs[[idx[i]]]<-curExpr[ord]
+		}
+	}
+	
     # Construct pheno data
     phenoData<-.makePhenoData.xPONENT(mapping.file,path)
     # Replace the names of the exprs object with the filename
@@ -254,7 +269,7 @@ makeMapping<-function(folder)
 }
 
 
-### Summarize to MFIs
+
 
 #BAMAsummarize<-function(from,type="MFI")
 #        {
@@ -267,6 +282,7 @@ makeMapping<-function(folder)
 #        mfiSet
 #      }
 
+### Summarize to MFIs and add standardCurves informations
 BAMAsummarize<-function(from,type="MFI")
 	  {
 		  mat<-sapply(exprs(from),sapply,median)
@@ -278,19 +294,19 @@ BAMAsummarize<-function(from,type="MFI")
 
 		  ##TODO: Potential args of the func
 		  #hard coded 5-PL & inv
-		  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(y - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
+		  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
 		  
-
 		  #fitInfo
 		  df<-melt(mfiSet)
 		  df<-subset(df, concentration!=0 & control==1)
+		  nCtrl<-length(unique(df$well))
 		  df.split<-split(df, df$analyte)
 		  coeffs<-lapply(df.split, function(x){
-					  res<-drm(mfi ~ concentration, data=x,fct=LL.5())
+					  res<-drm(log(mfi) ~ concentration, data=x,fct=LL.5())#, weights=1/mfi^2)
 					  return(res$parmMat)
 				  })
 		  
-		  calc_conc<-p100rec<-b<-c<-d<-e<-f<-numeric(nrow(df))
+		  calc_conc<-p100rec<-numeric(nrow(df))
 		  for(idx in 1:nrow(df))
 		  {
 			  calc_conc[idx]<-inv(df[idx,"mfi"], coeffs[[df[idx,"analyte"]]])
@@ -300,7 +316,7 @@ BAMAsummarize<-function(from,type="MFI")
 		  names(li)<-c('b','c','d','e','f')
 		  for(i in 1:5)
 		  {
-			  li[[i]]<-rep(sapply(coeffs, "[[", i), each=7)
+			  li[[i]]<-rep(sapply(coeffs, "[[", i), each=nCtrl)
 		  }
 		  df2<-cbind(df[,c("plate", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, li)
 		  mfiSet@fit<-df2

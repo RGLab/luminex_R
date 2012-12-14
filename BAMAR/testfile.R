@@ -14,6 +14,7 @@ bsum<-BAMAsummarize(bama)
 ggplot_sc(bsum)
 
 
+
 ## Create dataframe for visualization
 #df<-melt(bama)
 #

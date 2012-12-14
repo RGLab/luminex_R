@@ -27,21 +27,27 @@ setMethod("exprs", "BAMAset", function(object){
   return(object@exprs)
 })
 
+# fit accessor for standard curve fitting information
+setGeneric("fit", function(object, ...) standardGeneric("fit"))
+setMethod("fit", "BAMAsummary",function(object){
+  return(object@fit)
+})
+
 # Subset method to subset a la eSet
 setMethod("[","BAMAset",
           function(x,i,j,..., drop=FALSE)
           {
             if(!missing(i))
             {
-              #Subset the analytes
-              bdata<-exprs(x)[i]
               #Subset the samples
-              bdata<-lapply(exprs(x),"[",j)              
+              bdata<-exprs(x)[j]
+              #Subset the analytes
+              bdata<-lapply(exprs(x),"[",i)              
             }
             else
             {
-              #Subset the samples              
-              bdata<-lapply(exprs(x),"[",j)              
+              #Subset the analytes         
+              bdata<-lapply(exprs(x),"[",i)              
             }            
             newSet<-new('BAMAset'
                         ,exprs=bdata
@@ -109,60 +115,6 @@ setMethod("melt","BAMAsummary",
           })
 
 #--------
-# getFormulas
-# Returns the list of formulas for the BAMAsummary
-setGeneric("getFormulas", function(object) standardGeneric("getFormulas"))
-setMethod("getFormulas", "BAMAsummary",
-		function(object)
-		{
-		  df<-melt(object)
-		  browser()
-		  df.ctrl<-subset(df, control==1)
-		  df.split<-split(df.ctrl, df.ctrl$analyte) #split wwith analyte as factor
-		  formulas.sc<-lapply(df.split, function(x){
-					  res<-drm(mfi ~ concentration, data=x,fct=LL.5())
-					  return(res$curve[[1]])
-				  })
-		  names(formulas.sc)<-names(df.split)
-		  formula(object)<-formulas.sc
-		})
-
-
-
-#--------
-# getPercentRecov
-# Returns a d.f with mfi/conc/expected_conc/calculated_conc/percent_recovery BAMAsummary object
-setGeneric("getPercentRecov", function(object, ...) standardGeneric("getPercentRecov"))
-setMethod("getPercentRecov", "BAMAsummary",
-		function(object)
-		{
-			fct<-LL.5()
-#			weights=NULL
-			if(length(formula(object))==0)
-				stop("The formula slot is empty. Run 'getFormulas'to add the formulas for this object.\n")
-			df<-melt(object)
-			df<-subset(df, concentration!=0 & control==1, select=c("well", "analyte", "mfi", "concentration"))
-
-			df.split<-split(df,df$analyte)
-			res<-lapply(df.split,function(x)
-					{
-						weights<-1/log(x$mfi)^2
-						res<-drm(mfi ~ concentration, data=x,fct=fct,weights=weights)
-					})
-			
-			calc_conc<-numeric(nrow(df))
-			recov<-numeric(nrow(df))
-			for(idx in 1:nrow(df))
-			{
-				calc_conc[idx]<-res[[df[idx,"analyte"]]]$fct$inversion(df[idx,"mfi"], res[[df[idx,"analyte"]]]$parmMat)
-				recov[idx]<-calc_conc[idx]/df[idx,"concentration"]
-			}
-			ret<-cbind(df, calc_conc, p100recov=recov)
-			return(ret)
-		})
-
-
-#--------
 # formula
 # getter
 #setGeneric("formula", function(object, ...) standardGeneric("formula"))
@@ -177,7 +129,7 @@ setReplaceMethod("formula", "BAMAsummary", function(object, value){object@formul
 #--------
 # drawStdC
 # Returns the list of formulas for the BAMAsummary
-setGeneric("ggplot_sc", function(object, ...) standadGeneric("drawStdC"))
+setGeneric("ggplot_sc", function(object, ...) standardGeneric("ggplot_sc"))
 setMethod("ggplot_sc", "BAMAsummary",
 		function(object)
 		{
@@ -192,11 +144,42 @@ setMethod("ggplot_sc", "BAMAsummary",
 			li<-lapply(unique(fit$analyte), function(x){
 						fct(concs, coefs[x,])
 					})
-			stdf<-data.frame(analyte=rep(unique(fit$analyte), each=length(concs)), mfi=unlist(li), 
+			stdf<-data.frame(analyte=rep(unique(fit$analyte), each=length(concs)), mfi=exp(unlist(li)), 
 					concentration=rep(concs, length(unique(fit$analyte))))						
 			
-			ggplot(fit)+geom_point(aes(y=mfi,x=concentration),size=2)+facet_wrap(~analyte)+scale_x_log10()+scale_y_log10()+theme_bw()+geom_line(data=stdf,aes(y=mfi,x=concentration),color="blue")
+			ggplot(fit)+
+					geom_point(aes(y=mfi,x=concentration),size=2)+
+					facet_wrap(~analyte)+
+					scale_x_log10()+scale_y_log10()+
+#					theme_bw()+
+					geom_line(data=stdf,aes(y=mfi,x=concentration, group=analyte))
 			
 		})
 
+setGeneric("geom_sc", function(object, n=100, color="blue", mapping = NULL, data = NULL, 
+				stat = "identity", position = "identity", 
+				na.rm = FALSE, ...) standardGeneric("geom_sc"))
+setMethod("geom_sc", "BAMAsummary",
+		function(object, n=100, color="blue", mapping = NULL, data = NULL, 
+				stat = "identity", position = "identity", 
+				na.rm = FALSE, ...)
+		{
+			fct<-function(x, parmVec){parmVec[[2]] + (parmVec[[3]] - parmVec[[2]])/(1 + exp(parmVec[[1]] * (log(x) - log(parmVec[[4]]))))^parmVec[[5]]}
+			
+			fit<-object@fit
+			concs<-exp(seq(0,log(max(fit$concentration)),length.out=n))
+			coefs<-unique(fit[,c('b','c','d','e','f')])
+#			sdf<-unique(fit[,c('analyte','b','c','d','e','f')])
+#			rownames(sdf)<-sdf$analyte
+			
+			li<-lapply(unique(fit$analyte), function(x){
+						fct(concs, coefs[x,])
+					})
+			stdf<-data.frame(analyte=rep(unique(fit$analyte), each=length(concs)), mfi=exp(unlist(li)), 
+					concentration=rep(concs, length(unique(fit$analyte))))						
+			
+			ret<-geom_line(data=stdf, aes(y=mfi, x=concentration),
+					color=color, na.rm=na.rm, ...)
+			return(ret)
+		})
 
