@@ -10,7 +10,7 @@ importFrom(gdata, read.xls)
 importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
 
 #Tools
-importFrom(tools,file_ext, list_files_with_exts)
+importFrom(tools, file_ext, list_files_with_exts)
 
 #flowCore stuff
 importMethodsFrom(flowCore, pData, exprs)
@@ -32,7 +32,7 @@ scale_x_log10, scale_y_log10)
 
 ######
 ######
-export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
-exportMethods("show", "pData", "featureData", "exprs", "fit",
-	"melt", "[", "ggplot_sc", "geom_sc")
+exportMethods("show", "pData", "fData", "exprs", "fit", "melt", "[",
+	"geom_sc")
 exportClasses("BAMAset","BAMAsummary")
+export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
