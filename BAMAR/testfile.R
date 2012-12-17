@@ -80,7 +80,6 @@ f5<-function(x,coef)
 
 bsum<-BAMAsummarize(bama)
 
-ggplot_sc(bsum)
 
 
 
@@ -187,3 +186,18 @@ ggplot_sc(bsum)
 #  solution<-uniroot(function (x,MFI,...){f(x,...)-MFI}, interval, MFI,...)[1]
 #  return(solution)
 #}
+
+bama.mfi<-BAMAsummarize(bama)
+
+df.mfi<-melt(bama.mfi)
+df.mfi.subset<-subset(df.mfi,control==TRUE)
+
+# Image type plot visualization
+ggplot(df.mfi.subset)+geom_point(aes(x=concentration,y=mfi))+facet_wrap(~analyte)+geom_sc(object=bama.mfi,n=100,mapping=aes(x=concentration,y=mfi))+scale_x_log10()+scale_y_log10()
+
+bama<-read.luminex(mapping="~/Dropbox/LENA P1/3-01-2012 LENA P1_20120301_145732.csv", path="~/Dropbox/LENA P1/3-01-2012 LENA P1_rcsv/")
+
+path<-"/Users/rgottard/Dropbox/Ofir's Luminex data/Listeria/Listeria/100816 wt and ActAFlaP time course"
+
+bama<-read.luminex(path=path)
+bama.mfi<-BAMAsummarize(bama)

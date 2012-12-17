@@ -140,94 +140,85 @@ read.Lxb<-function(files)
 #--------
 # xPONENT
 # Read raw data
-.read.bd.xPONENT<-function(path)
+.read.bd.xPONENT<-function(all.files,bid)
 {
-  files<-list_files_with_exts(path,"csv")
-
-  exprsList<-lapply(files,function(x){con<-read.csv(x, skip=1, header=TRUE);beadList<-split(con[,"RP1"],con[,"RID"]);return(beadList);})
+  #FIXME: There is a problem with the skip
+  exprsList<-lapply(all.files,
+                    function(x,bid){
+                      con<-read.csv(x, skip=4, header=TRUE);
+                      # Need to check the second argument and the number of lines to skip above
+                      beadList<-split(con[,"RP1"],con[,2]);
+                      bid.missing<-bid[bid%in%names(beadList)]
+                      list.missing<-as.list(rep(NA,length(bid.missing)))
+                      names(list.missing)<-bid.missing
+                      beadList<-c(beadList,bid.missing)
+                      # Order according to the bid
+                      beadList<-beadList[order(names(beadList))]
+                      return(beadList);},bid)
+  
   return(exprsList)
 }
 
-# Read mapping
-.read.mapping.xPONENT<-function(file)
-{
-  rl<-readLines(file, warn=FALSE)#A character vector 1char/line
-
-  rl2<-gsub("\"", "", rl) #no quotes
-  # Bead ID-Analyte mapping  
-  position<-grep("DataType:,Units",rl2)
-  analyte<-unlist(strsplit(rl2[position+1],","))[-1]
-  bid<-unlist(strsplit(rl2[position+2],","))[-1]
-  df<-data.frame(analyte=analyte,bid=bid)
-  return(featureData=as(df,'AnnotatedDataFrame'))
-}
-
 # Function to combine raw and mapping data
-read.luminex<-function(mapping.file=NULL, path="./")
-{  
-  if(is.null(mapping.file))
+read.luminex<-function(path="./")
+{
+  ## TODO add a function to read the file, sanitize it and check the format, column names, etc
+  analyte.file<-list.files(path,pattern="analyte",full.names=TRUE)
+  if(length(analyte.file)==0)
   {
-    warning("You have not specified a mapping file, looking for data files in '",path,"'\n")
-    ##TODO: try reading lxb in path and make a deefault aD/pD and calculate the summary
+    stop("Can't map bead ids to analyte, the 'analyte.csv' file is missing\n")
   }
-  ext<-file_ext(mapping.file)
-  if(ext=="lxd")
-    return(read.Lxd(mapping.file, path))
-  else if(ext=="csv")
+  else
   {
-    featureData<-.read.mapping.xPONENT(mapping.file)
-    # Read expression values
-    exprs<-.read.bd.xPONENT(path)
-	# Fill missing analytes with NA
-	if(any(unlist(lapply(exprs, length))-1!=nrow(featureData)))
-	{
-		idx<-which(unlist(lapply(exprs, length))-1!=nrow(featureData))
-		for(i in 1:length(idx))
-		{
-			curExpr<-exprs[[idx[i]]]
-			missFeat<-pData(featureData[which(!featureData$bid %in% names(curExpr)),])$bid
-			curExpr<-c(curExpr, rep(NA, length(missFeat)))
-			names(curExpr)[(length(curExpr)-length(missFeat)+1):length(curExpr)]<-as.character(missFeat)
-			ord<-order(as.numeric(names(curExpr)))
-			exprs[[idx[i]]]<-curExpr[ord]
-		}
-	}
-	
-    # Construct pheno data
-    phenoData<-.makePhenoData.xPONENT(mapping.file,path)
-    # Replace the names of the exprs object with the filename
-    # If need we could construct a methods names for BAMAset to use better names
-    
-    names(exprs)<-pData(phenoData)$filename
-    # Remove the outliers (bid not in the mapping file)        
-    # Renames the analyte and replace the bid by the bead name
-    exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))    
-    BAMAset<-new("BAMAset", phenoData=phenoData, featureData=featureData, exprs=exprs)
+    featureData<-as(read.csv(analyte.file,header=TRUE),'AnnotatedDataFrame')
   }
+
+  ## TODO add a function to read the file, sanitize it and check the format, column names, etc
+  ## Also check that the filenames match what's in the pheno file
+  pheno.file<-list.files(path,pattern="phenotype",full.names=TRUE)
+  if(length(pheno.file)==0)
+  {
+    warning("No pheno data provided, the 'phenotype.csv' file is missing\n")
+  }
+  else
+  {    
+  #To be added later, mapping file  
+  #phenoData<-.read.mapping.pheno(pheno.file)
+  }
+  
+  # Directory name (plate) only (without full path)
+  plate.name<-list.dirs(path=path,recursive=F)
+  plate.name<-unlist(lapply(plate.name,function(x)tail(strsplit(x,"/")[[1]],1)))
+  # Make sure it's not a hidden directory
+  which.to.keep<-sapply(plate.name,substr,1,1)!="."
+  dirs<-list.dirs(path=path,recursive=F)[which.to.keep]
+  plate.name<-plate.name[which.to.keep]
+  
+  # Get all files in all directories
+  all.files<-unlist(lapply(dirs,list_files_with_exts,exts="csv"))
+  filename<-unlist(lapply(all.files,function(x)tail(strsplit(x,"/")[[1]],1)))
+  filename<-sub("^([^.]*).*", "\\1",filename)
+  
+  # Construct pheno data
+  # Well id based on last 3 characters
+  well<-unlist(lapply(filename,function(x){substr(x,nchar(x)-2,nchar(x))}))  
+  # plate.name repeat unique plate name by number of wells
+  plate.name<-rep(plate.name,sapply(plate.name,function(x,all.files){length(grep(x,all.files))},all.files))
+  phenoData<-data.frame(plate=plate.name,filename=filename,well=well)
+  phenoData<-as(phenoData,'AnnotatedDataFrame')
+  
+  # Read expression values
+  exprs<-.read.bd.xPONENT(all.files,pData(featureData)$bid)
+  
+  names(exprs)<-pData(phenoData)$filename
+  # Remove the outliers (bid not in the mapping file)        
+  # Renames the analyte and replace the bid by the bead name
+  exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))
+  
+  BAMAset<-new("BAMAset", phenoData=phenoData, featureData=featureData, exprs=exprs)
+  
   return(BAMAset)
 }
-
-# .makePhenoData
-#   INPUT: A character vector
-#   OUTPUT: A data.frame that can be used for the pData slot
-.makePhenoData.xPONENT<-function(mapping.file,path)
-{
-  files<-list_files_with_exts(path, "csv", all.files = FALSE, full.names=FALSE)
-  # remove extension 
-  files<-sub("^([^.]*).*", "\\1",files)
-  # Plate information
-  # Plate
-  plate<-sub("^([^.]*).*", "\\1",mapping.file)
-  plate<-tail(unlist(strsplit(plate,"/")),1)
-  # Well (Assumes a standard file format)
-  # Need to check it's always the case
-  #well<-unlist(lapply(LETTERS[1:8],paste0,1:11))
-  well<-unlist(lapply(files,function(x){tail(strsplit(x,"_")[[1]],1)}))
-  
-  phenoData<-data.frame(filename=files,plate=rep(plate,length(well)),well=well)
-  return(as(phenoData,'AnnotatedDataFrame'))
-}
-
 
 ##TODO: Function to read our specified mapping format (csv or xls wld be OK)
 #
@@ -238,43 +229,11 @@ read.pheno.file<-function(file)
   pD<-read.csv(file)
 }
 
-
-# getWellName
-#   INPUT: int row, col;
-#   OUTPUT: well_id
-getWellName<-function(row, col)
-{
-  if(row < 1 | col < 1)
-    stop("A well cannot have a NULL or negative row or column")
-  if(row > 8 | col > 12)
-    warning("The number of rows or column is too big for a standard 96 wells plate")
-  return(paste(LETTERS[row], col, sep=""))
-}
-
-makeMapping<-function(folder)
-{
-  files<-list.files(folder)
-  wells<-gsub(".csv", "", sapply(files,function(x){ul<-unlist(strsplit(x, split=c("_"))); return(ul[[length(ul)]])} ))
-  cols<-as.numeric(substr(wells,2,nchar(wells)))
-  rows<-substr(wells,1,1)
-  rows<-as.numeric(sapply(rows, function(x) {which(LETTERS==x)} ))
-  df<-data.frame(filename=files, row=rows, col=cols, row.names=wells)
-  df <- df[with(df, order(row, col)), ]
-  ##grp_idx: to match case with control
-  ##type: case/ctrl/std/other ctrls
-  ##dil: dilution for stdrds
-  ##exp_conc: expected conc for stdrds
-  ## Is it realistic to make defaults for that? Can I have a simple user input to specify that?:w
-  
-}
-
-
-
 ### Summarize to MFIs and add standardCurves informations
 BAMAsummarize<-function(from,type="MFI")
 	  {
 		  mat<-sapply(exprs(from),sapply,median)
-		  mfiSet<-new("BAMAsummary", formula=as.formula("mfi ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
+		  mfiSet<-new("BAMAsummary", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
 		  exprs(mfiSet)<-mat
 		  pData(mfiSet)<-pData(from)
 		  fData(mfiSet)<-fData(from)

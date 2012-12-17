@@ -160,28 +160,38 @@ setMethod("ggplot_sc", "BAMAsummary",
 setGeneric("geom_sc", function(object, n=100, data = NULL, 
 				stat = "identity", position = "identity", 
 				na.rm = FALSE, ...) standardGeneric("geom_sc"))
-#mapping is aes, so it should not be passed
-setMethod("geom_sc", "BAMAsummary",
-		function(object, n=100, data = NULL, 
-				stat = "identity", position = "identity", 
-				na.rm = FALSE, ...)
-		{
-			fct<-function(x, parmVec){parmVec[[2]] + (parmVec[[3]] - parmVec[[2]])/(1 + exp(parmVec[[1]] * (log(x) - log(parmVec[[4]]))))^parmVec[[5]]}
-			
-			fit<-object@fit
-			concs<-exp(seq(0,log(max(fit$concentration)),length.out=n))
-			coefs<-unique(fit[,c('b','c','d','e','f')])
-#			sdf<-unique(fit[,c('analyte','b','c','d','e','f')])
-#			rownames(sdf)<-sdf$analyte
-			
-			li<-lapply(unique(fit$analyte), function(x){
-						fct(concs, coefs[x,])
-					})
-			stdf<-data.frame(analyte=rep(unique(fit$analyte), each=length(concs)), mfi=exp(unlist(li)), 
-					concentration=rep(concs, length(unique(fit$analyte))))						
-			
-			ret<-geom_line(data=stdf, aes(y=mfi, x=concentration, group=analyte, ...),
-					 stat=stat, position=position, na.rm=na.rm, ...)
-			return(ret)
-		})
 
+setMethod("geom_sc", "BAMAsummary",
+          function(object, n=100, color="blue", mapping = NULL, data = NULL, 
+                   stat = "identity", position = "identity", 
+                   na.rm = FALSE, ...)
+          {            
+            
+            fit<-object@fit
+            # Extract the coefficients per plate/analyte
+            # Split by plate then analyte                                
+            sfit<-lapply(split(fit,fit$plate),function(x){split(x,x$analyte)})
+            df.sc<-lapply(sfit,lapply,.df_sc_fit,object@formula)
+            df.sc<-as.data.frame(do.call("rbind",lapply(df.sc,function(x)do.call("rbind",x))))
+            
+            ret<-geom_line(data=df.sc, mapping=mapping,
+                           color=color, na.rm=na.rm, ...)
+            return(ret)
+          })
+
+.df_sc_fit<-function(df,formula,n=100)
+{
+  # Concentration from min to max
+  x<-exp(seq(0,log(max(df$concentration)),length.out=n))
+  coef<-as.numeric(df[1,c('b','c','d','e','f')])
+  # Should be able to parse this automatically
+  b<-coef[1];c<-coef[2];d<-coef[3];e<-coef[4];f<-coef[5];
+  # Evalulate formula
+  mfi<-eval(parse(text=formula[3]))
+  # Check whether the formula is fit on the log scale
+  if(substr(as.character(formula[2]),1,3)=="log")
+    mfi <- exp(mfi)  
+  # basic dataframes with plate, filename, well, concentration, mfi
+  newdf<-data.frame(plate=rep(df$plate[1],n),well=rep(df$well[1],n),analyte=rep(df$analyte[1],n),concentration=x,mfi=mfi)
+ return(newdf)
+}
