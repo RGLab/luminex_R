@@ -156,11 +156,13 @@ setMethod("ggplot_sc", "BAMAsummary",
 			
 		})
 
-setGeneric("geom_sc", function(object, n=100, color="blue", mapping = NULL, data = NULL, 
+
+setGeneric("geom_sc", function(object, n=100, data = NULL, 
 				stat = "identity", position = "identity", 
 				na.rm = FALSE, ...) standardGeneric("geom_sc"))
+#mapping is aes, so it should not be passed
 setMethod("geom_sc", "BAMAsummary",
-		function(object, n=100, color="blue", mapping = NULL, data = NULL, 
+		function(object, n=100, data = NULL, 
 				stat = "identity", position = "identity", 
 				na.rm = FALSE, ...)
 		{
@@ -178,8 +180,8 @@ setMethod("geom_sc", "BAMAsummary",
 			stdf<-data.frame(analyte=rep(unique(fit$analyte), each=length(concs)), mfi=exp(unlist(li)), 
 					concentration=rep(concs, length(unique(fit$analyte))))						
 			
-			ret<-geom_line(data=stdf, aes(y=mfi, x=concentration),
-					color=color, na.rm=na.rm, ...)
+			ret<-geom_line(data=stdf, aes(y=mfi, x=concentration, group=analyte, ...),
+					 stat=stat, position=position, na.rm=na.rm, ...)
 			return(ret)
 		})
 

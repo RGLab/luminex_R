@@ -270,18 +270,6 @@ makeMapping<-function(folder)
 
 
 
-
-#BAMAsummarize<-function(from,type="MFI")
-#        {
-#        mat<-sapply(exprs(from),sapply,median)
-#        mfiSet<-new("BAMAsummary", formula=as.formula("mfi ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
-#        exprs(mfiSet)<-mat
-#        pData(mfiSet)<-pData(from)
-#        fData(mfiSet)<-fData(from)
-#        mfiSet@unit="MFI"
-#        mfiSet
-#      }
-
 ### Summarize to MFIs and add standardCurves informations
 BAMAsummarize<-function(from,type="MFI")
 	  {
