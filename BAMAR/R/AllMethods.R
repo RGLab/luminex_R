@@ -126,43 +126,12 @@ setGeneric("formula<-", function(object, value, ...) standardGeneric("formula<-"
 setReplaceMethod("formula", "BAMAsummary", function(object, value){object@formula<-value; object})
 
 
-#--------
-# drawStdC
-# Returns the list of formulas for the BAMAsummary
-setGeneric("ggplot_sc", function(object, ...) standardGeneric("ggplot_sc"))
-setMethod("ggplot_sc", "BAMAsummary",
-		function(object)
-		{
-			n<-100
-			##TODO: get the formula from the formula...
-			fct<-function(x, parmVec){parmVec[[2]] + (parmVec[[3]] - parmVec[[2]])/(1 + exp(parmVec[[1]] * (log(x) - log(parmVec[[4]]))))^parmVec[[5]]}
-
-			fit<-object@fit
-			concs<-exp(seq(0,log(max(fit$concentration)),length.out=n))
-			coefs<-unique(fit[,c('b','c','d','e','f')])
-
-			li<-lapply(unique(fit$analyte), function(x){
-						fct(concs, coefs[x,])
-					})
-			stdf<-data.frame(analyte=rep(unique(fit$analyte), each=length(concs)), mfi=exp(unlist(li)), 
-					concentration=rep(concs, length(unique(fit$analyte))))						
-			
-			ggplot(fit)+
-					geom_point(aes(y=mfi,x=concentration),size=2)+
-					facet_wrap(~analyte)+
-					scale_x_log10()+scale_y_log10()+
-#					theme_bw()+
-					geom_line(data=stdf,aes(y=mfi,x=concentration, group=analyte))
-			
-		})
-
-
 setGeneric("geom_sc", function(object, n=100, data = NULL, 
 				stat = "identity", position = "identity", 
 				na.rm = FALSE, ...) standardGeneric("geom_sc"))
 
 setMethod("geom_sc", "BAMAsummary",
-          function(object, n=100, color="blue", mapping = NULL, data = NULL, 
+          function(object, n=100, mapping = NULL,
                    stat = "identity", position = "identity", 
                    na.rm = FALSE, ...)
           {            
@@ -175,7 +144,7 @@ setMethod("geom_sc", "BAMAsummary",
             df.sc<-as.data.frame(do.call("rbind",lapply(df.sc,function(x)do.call("rbind",x))))
             
             ret<-geom_line(data=df.sc, mapping=mapping,
-                           color=color, na.rm=na.rm, ...)
+                           na.rm=na.rm, ...)
             return(ret)
           })
 
@@ -192,6 +161,6 @@ setMethod("geom_sc", "BAMAsummary",
   if(substr(as.character(formula[2]),1,3)=="log")
     mfi <- exp(mfi)  
   # basic dataframes with plate, filename, well, concentration, mfi
-  newdf<-data.frame(plate=rep(df$plate[1],n),well=rep(df$well[1],n),analyte=rep(df$analyte[1],n),concentration=x,mfi=mfi)
+  newdf<-data.frame(plate=rep(df$plate[1],n),analyte=rep(df$analyte[1],n),concentration=x,mfi=mfi)
  return(newdf)
 }

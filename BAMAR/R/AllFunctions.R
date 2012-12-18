@@ -1,117 +1,3 @@
-#----------
-#MasterPlex
-
-# read.Lxd
-#   parse .lxd files to retrive assay/phenoData and MFI/count/mean/trimStuff
-read.Lxd<-function(filename, path="./")
-{
-  lxd<-xmlTreeParse(filename)
-  root<-xmlRoot(lxd)
-
-  plate<-root[[which(names(root)=="Plate")]] #make a copy of the tree from the selected node
-  platerows<-LETTERS[1:8]
-
-  wVec<-c()
-  lxbVec<-c()
-  widx<-as.numeric(which(names(plate)=="Well"))
-  wInfoVec<-vector("list", length(widx))
-  for(curWidx in 1:length(widx))
-  {
-    #retrieve some well info
-    ##TODO: parse <LocName> to put a name on each well
-    curNode<-plate[[widx[[curWidx]]]]
-    curWellInfo<-xmlAttrs(curNode)
-    wellName<-paste(platerows[[as.integer(curWellInfo[["row"]])+1]], curWellInfo[["col"]], sep="")
-    wVec<-c(wVec, wellName)
-    curWellInfo<-c(Well=wellName, curWellInfo[3:length(curWellInfo)])
-    wInfoVec[[curWidx]]<-curWellInfo
-    #retrieve lxb filenames
-    lxbStr<-xmlValue(curNode[["BinaryFileLoc"]])
-    lxbFile<-strsplit(lxbStr, split="\\\\")[[1]]
-    lxbFile<-lxbFile[length(lxbFile)]
-    lxbVec<-c(lxbVec, lxbFile)
-    #retrieve the beads
-    bidx<-as.numeric(which(names(curNode)=="RSts"))
-    #retrieve summary
-    for(curBidx in 1:length(bidx))
-    {
-      curID<-as.numeric(xmlAttrs(curNode[[bidx[[curBidx]]]])[1])
-      #curVals<-c(curWellInfo,xmlAttrs(curNode[[bidx[[curBidx]]]][4][[1]])) #4 is chan2 which should be the one used
-      curSummary<-unlist(list(bid=curID,well_id=wellName,xmlAttrs(curNode[[bidx[[curBidx]]]][4][[1]])[c("median","mean","stdDev","cv")])) #4 is chan2 which should be the one used
-      if(curWidx==1 & curBidx==1)
-        summary<-data.frame(as.list(curSummary), stringsAsFactors=FALSE) #initialize
-      else
-        summary<-rbind(summary, as.list(curSummary)) 
-    }
-  }
-
-  ##
-  # phenoData
-  ##
-  pData<-data.frame(well_id=wVec, filename=lxbVec) #Minimal pD output: filename + well_id
-  #pData<-cbind(t(data.frame(wInfoVec)), filename=lxbVec)
-  #rownames(pData)<-seq(1:length(widx) #Maximal pD output: filename + all well info
-  
-  ##
-  # assayData
-  ## 
-  setup<-root[[which(names(root)=="Setup")[1]]] #setup
-  setupRun<-root[[which(names(root)=="Setup")[2]]] #setupRun
-  ##TODO: which run is what?
-  gateInfo<-xmlAttrs(setupRun[["SetGate"]])
-  regionIdx<-as.numeric(which(names(setupRun)=="Region"))
-  #initialize the data.frame with the control id
-  aD<-data.frame(id=0, name="control", minCount=0, maxCount=100, active=1, stringsAsFactors=FALSE)
-  #Parse other analytes
-  for(curRIdx in 1:length(regionIdx))
-  {
-    curNode<-setupRun[[regionIdx[[curRIdx]]]]
-    analyteInfo<-xmlAttrs(curNode)
-    aD<-rbind(aD, as.list(analyteInfo))
-  }
-  
-  ##
-  # exprs
-  ##
-  #Create list with 1elt per well
-  nFiles<-nrow(pData)
-  exprsList<-vector('list', nFiles)
-  cat("Looking for .lxb files in: ", path,"\n")
-  cntFiles<-0
-  for(fileIdx in 1:nFiles)
-  {
-    try(expr={
-    lxbPath<-paste(path, pData[,"filename"][fileIdx], sep="/")
-    #wID<-pData[,"well_id"][fileIdx]
-    #I suppress the warnings about the int byte size as they are relevant only for the time variable that is not used
-    suppressWarnings(lxb<-read.FCS(lxbPath))
-    exprsLxb<-exprs(lxb)
-
-    IDList<-sort(unique(exprsLxb[,"RID"]))
-    sampleList<-vector('list', length(IDList)) #create list of set size
-    for(idxID in 1:length(IDList))
-    {   
-      vals<-exprsLxb[which(exprsLxb[,"RID"]==IDList[idxID]), "RP1"]
-      sampleList[[idxID]]<-vals
-    }   
-    names(sampleList)<-IDList
-    exprsList[[fileIdx]]<-sampleList
-    cntFiles<-cntFiles+1
-    },#end expr
-    silent=TRUE)
-  }
-  if(cntFiles==0)
-  {
-    warning("None of the binary files referenced in '",filename,"' were found in '",path,"'  The exprs slot will be empty.\nMake sure that 'path' leads to the folder where the .lxb files are located.\n")
-  } else if(cntFiles<nFiles)
-  {
-    warning(nFiles-cntFiles, " files not found in '",path,"'\n")
-  }
-  names(exprsList)<-pData[,"well_id"]
-
-   return(new("BAMAObject", phenoData=pData, assayData=aD, summary=summary, exprs=exprsList))
-}
-
 
 read.Lxb<-function(files)
 {
@@ -148,10 +34,10 @@ read.Lxb<-function(files)
                       con<-read.csv(x, skip=sLine, header=TRUE);
                       # Need to check the second argument and the number of lines to skip above
                       beadList<-split(con[,"RP1"],con[,2]);
-                      bid.missing<-bid[bid%in%names(beadList)]
+                      bid.missing<-bid[!bid%in%names(beadList)]
                       list.missing<-as.list(rep(NA,length(bid.missing)))
                       names(list.missing)<-bid.missing
-                      beadList<-c(beadList,bid.missing)
+                      beadList<-c(beadList,list.missing)
                       # Order according to the bid
                       beadList<-beadList[order(names(beadList))]
                       return(beadList);},bid)
@@ -232,42 +118,52 @@ read.pheno.file<-function(file)
 ### Summarize to MFIs and add standardCurves informations
 BAMAsummarize<-function(from,type="MFI")
 	  {
-		  mat<-sapply(exprs(from),sapply,median)
+		  mat<-lapply(exprs(from),sapply,median)
+      mat<-t(do.call("rbind",mat))
 		  mfiSet<-new("BAMAsummary", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
 		  exprs(mfiSet)<-mat
 		  pData(mfiSet)<-pData(from)
 		  fData(mfiSet)<-fData(from)
 		  mfiSet@unit="MFI"
-
-		  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
 		  
-		  #fitInfo
 		  df<-melt(mfiSet)
-		  df<-subset(df, concentration!=0 & control==1)
-		  nCtrl<-length(unique(df$well))
-		  df.split<-split(df, df$analyte)
-		  coeffs<-lapply(df.split, function(x){
-					  res<-drm(log(mfi) ~ concentration, data=x,fct=LL.5())#, weights=1/mfi^2)
-					  return(res$parmMat)
-				  })
-		  
-		  calc_conc<-p100rec<-numeric(nrow(df))
-		  for(idx in 1:nrow(df))
-		  {
-			  calc_conc[idx]<-inv(df[idx,"mfi"], coeffs[[df[idx,"analyte"]]])
-			  p100rec[idx]<-calc_conc[idx]/df[idx,"concentration"]*100
-		  }
-		  li<-vector('list', 5)
-		  names(li)<-c('b','c','d','e','f')
-		  for(i in 1:5)
-		  {
-			  li[[i]]<-rep(sapply(coeffs, "[[", i), each=nCtrl)
-		  }
-		  df2<-cbind(df[,c("plate", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, li)
+      # subselects controls
+		  df<-subset(df, concentration!=0 & control==1)		  
+		  # Split by plate
+		  sdf<-split(df,df$plate)
+      df2<-lapply(sdf,.fit_sc)
+      df2<-do.call("rbind",df2)
+      
 		  mfiSet@fit<-df2
 		  
 		mfiSet
 	  }	  
 
-	  
+.fit_sc<-function(df)
+{
+  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
+  
+  nCtrl<-length(unique(df$well))
+  df.split<-split(df, df$analyte)
+  coeffs<-lapply(df.split, function(x){
+    res<-drm(log(mfi) ~ concentration, data=x,fct=LL.5())
+    return(res$parmMat)
+  })
+  
+  calc_conc<-p100rec<-numeric(nrow(df))
+  for(idx in 1:nrow(df))
+  {
+    calc_conc[idx]<-inv(df[idx,"mfi"], coeffs[[df[idx,"analyte"]]])
+    p100rec[idx]<-calc_conc[idx]/df[idx,"concentration"]*100
+  }
+  li<-vector('list', 5)
+  names(li)<-c('b','c','d','e','f')
+  for(i in 1:5)
+  {
+    li[[i]]<-rep(sapply(coeffs, "[[", i), each=nCtrl)
+  }
+  df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, li)
+  return(df2)
+}
+
 	  

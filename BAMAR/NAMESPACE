@@ -35,4 +35,4 @@ scale_x_log10, scale_y_log10)
 exportMethods("show", "pData", "fData", "exprs", "fit", "melt", "[",
 	"geom_sc")
 exportClasses("BAMAset","BAMAsummary")
-export("read.luminex", "read.Lxd", "read.Lxb", "BAMAsummarize")
+export("read.luminex", "BAMAsummarize")
