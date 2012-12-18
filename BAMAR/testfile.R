@@ -4,9 +4,9 @@ bama<-read.luminex(mapping="~/Dropbox/LENA P1/3-01-2012 LENA P1_20120301_145732.
 
 # Add the concentration information
 # Need to create a <- method for pData and fData
-bama@phenoData@data$control<-pData(bama)$well%in%paste0(LETTERS[1:8],1)
-bama@phenoData@data$concentration<-1
-bama@phenoData@data$concentration[pData(bama)$control]<-rev(c(0.0, 1.22, 4.88, 19.53, 78.13, 312.50, 1250.0, 5000.0))
+bama1@phenoData@data$control<-pData(bama1)$well%in%paste0(LETTERS[1:8],1)
+bama1@phenoData@data$concentration<-1
+bama1@phenoData@data$concentration[pData(bama1)$control]<-rev(c(0.0, 1.22, 4.88, 19.53, 78.13, 312.50, 1250.0, 5000.0))
 
 # Create dataframe for visualization
 df<-melt(bama)

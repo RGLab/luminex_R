@@ -142,10 +142,10 @@ read.Lxb<-function(files)
 # Read raw data
 .read.bd.xPONENT<-function(all.files,bid)
 {
-  #FIXME: There is a problem with the skip
+  sLine<-grep("[Ee]vent[Nn]o", readLines(all.files[1], n=5))-1
   exprsList<-lapply(all.files,
                     function(x,bid){
-                      con<-read.csv(x, skip=4, header=TRUE);
+                      con<-read.csv(x, skip=sLine, header=TRUE);
                       # Need to check the second argument and the number of lines to skip above
                       beadList<-split(con[,"RP1"],con[,2]);
                       bid.missing<-bid[bid%in%names(beadList)]
@@ -201,7 +201,7 @@ read.luminex<-function(path="./")
   
   # Construct pheno data
   # Well id based on last 3 characters
-  well<-unlist(lapply(filename,function(x){substr(x,nchar(x)-2,nchar(x))}))  
+  well<-unlist(lapply(filename,function(x){gsub("_", "", substr(x,nchar(x)-2,nchar(x)))}))  
   # plate.name repeat unique plate name by number of wells
   plate.name<-rep(plate.name,sapply(plate.name,function(x,all.files){length(grep(x,all.files))},all.files))
   phenoData<-data.frame(plate=plate.name,filename=filename,well=well)
@@ -239,8 +239,6 @@ BAMAsummarize<-function(from,type="MFI")
 		  fData(mfiSet)<-fData(from)
 		  mfiSet@unit="MFI"
 
-		  ##TODO: Potential args of the func
-		  #hard coded 5-PL & inv
 		  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
 		  
 		  #fitInfo
