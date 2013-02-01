@@ -310,6 +310,28 @@ fullFIttestpval <- function( analyte ) {
   return(p.ttest)
 }
 
+selThreshold<-function(deltaList, powerThresholds=c(0.19,0.29,0.39,0.49,0.59,0.69,0.79)){
+  selDelta<-sapply(deltaList, median, na.rm=TRUE)
+  curvature <- diff(diff(selDelta))
+  signs <- sign(curvature)
+  first_sign <- signs[1]
+  inflection_idx <- min(which(signs!=first_sign))
+  if ( is.finite(inflection_idx) ) {
+    threshold <- powerThresholds[inflection_idx+1]
+  } else { # if no inflection point found, find the point of the largest drop
+    threshold <- powerThresholds[which.min(diff(selDelta))+1]
+  }
+  return(threshold)
+}
+
+##TODO: decide wether I want to use saxyObj or fit
+# returns a data.frame with the alphas for each fit
+getAlphas<-function(saxyObj){
+  alphas<-sapply(saxyObj$fits, "[[", "coef_full")[-1,]
+  return(alphas)
+}
+
+
 #R#Probably no need for this function / or maybe just once for the actual PowerThreshold
 popCSV2<-function(filename, isAppended, fit, MFI, analyte, pvals, delta, mSB, sdSB){
   bead_id = unique(analyte$bid)
