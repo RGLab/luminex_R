@@ -56,8 +56,10 @@ read.luminex<-function(path="./")
   }
   else
   {
-    featureData<-as(read.csv(analyte.file,header=TRUE),'AnnotatedDataFrame')
+    #featureData<-as(read.csv(analyte.file,header=TRUE),'AnnotatedDataFrame')
+    featureData<-.read.mapping.analyte(analyte.file)
   }
+
 
   ## TODO add a function to read the file, sanitize it and check the format, column names, etc
   ## Also check that the filenames match what's in the pheno file
@@ -65,54 +67,84 @@ read.luminex<-function(path="./")
   if(length(pheno.file)==0)
   {
     warning("No pheno data provided, the 'phenotype.csv' file is missing\n")
+    # Directory name (plate) only (without full path)
+    plate.name<-list.dirs(path=path,recursive=FALSE)
+    plate.name<-unlist(lapply(plate.name,function(x)tail(strsplit(x,"/")[[1]],1)))
+    # Make sure it's not a hidden directory
+    which.to.keep<-sapply(plate.name,substr,1,1)!="."
+    dirs<-list.dirs(path=path,recursive=FALSE)[which.to.keep]
+    plate.name<-plate.name[which.to.keep]
+    # Get all files in all directories
+    all.files<-unlist(lapply(dirs,list_files_with_exts,exts="csv"))
+    filename<-unlist(lapply(all.files,function(x)tail(strsplit(x,"/")[[1]],1)))
+    filename<-sub("^([^.]*).*", "\\1",filename)
+    # Construct pheno data
+    # Well id based on last 3 characters
+    well<-unlist(lapply(filename,function(x){gsub("_", "", substr(x,nchar(x)-2,nchar(x)))}))  
+    # plate.name repeat unique plate name by number of wells
+    plate.name<-rep(plate.name,sapply(plate.name,function(x,all.files){length(grep(x,all.files))},all.files))
+    phenoData<-data.frame(plate=plate.name,filename=filename,well=well)
+    phenoData<-as(phenoData,'AnnotatedDataFrame')
   }
   else
   {    
-  #To be added later, mapping file  
-  #phenoData<-.read.mapping.pheno(pheno.file)
+    phenoData<-.read.mapping.pheno(pheno.file)
   }
   
-  # Directory name (plate) only (without full path)
-  plate.name<-list.dirs(path=path,recursive=F)
-  plate.name<-unlist(lapply(plate.name,function(x)tail(strsplit(x,"/")[[1]],1)))
-  # Make sure it's not a hidden directory
-  which.to.keep<-sapply(plate.name,substr,1,1)!="."
-  dirs<-list.dirs(path=path,recursive=F)[which.to.keep]
-  plate.name<-plate.name[which.to.keep]
-  
-  # Get all files in all directories
-  all.files<-unlist(lapply(dirs,list_files_with_exts,exts="csv"))
-  filename<-unlist(lapply(all.files,function(x)tail(strsplit(x,"/")[[1]],1)))
-  filename<-sub("^([^.]*).*", "\\1",filename)
-  
-  # Construct pheno data
-  # Well id based on last 3 characters
-  well<-unlist(lapply(filename,function(x){gsub("_", "", substr(x,nchar(x)-2,nchar(x)))}))  
-  # plate.name repeat unique plate name by number of wells
-  plate.name<-rep(plate.name,sapply(plate.name,function(x,all.files){length(grep(x,all.files))},all.files))
-  phenoData<-data.frame(plate=plate.name,filename=filename,well=well)
-  phenoData<-as(phenoData,'AnnotatedDataFrame')
   
   # Read expression values
-  exprs<-.read.bd.xPONENT(all.files,pData(featureData)$bid)
+  exprs<-.read.bd.xPONENT(paste(path,phenoData$plate,phenoData$filename,sep="/"),pData(featureData)$bid)
   
   names(exprs)<-pData(phenoData)$filename
-  # Remove the outliers (bid not in the mapping file)        
+  # Send warning regarding the outliers (bid not in the mapping file)        
+  allBid<-unique(unlist(lapply(exprs, names)))
+  notMappedBid<-allBid[!allBid%in%pData(featureData)$bid]
+  if(length(notMappedBid>0))
+  {
+    cat(length(notMappedBid),"of the beads found in the data are not found in the mapping file:", notMappedBid,"\n")
+  }
+  pData(featureData)<-rbind(pData(featureData), data.frame(analyte=paste("unknown", notMappedBid, sep=""), bid=notMappedBid))
   # Renames the analyte and replace the bid by the bead name
-  exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))
+  #exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))
+  exprs<-lapply(exprs,function(x,fd){
+    names(x)<-fd$analyte[match(names(x), fd$bid)]
+    return(x)}, fd=pData(featureData))
+  #exprs<-lapply(exprs,function(x,fd){
+    #newNames<-as.character(fd$analyte[match(names(x), fd$bid)])
+    #newNames[is.na(newNames)]<-names(x)[is.na(newNames)]
+    #names(x)<-newNames
+    #return(x)}, fd=pData(featureData))
   
   BAMAset<-new("BAMAset", phenoData=phenoData, featureData=featureData, exprs=exprs)
   
   return(BAMAset)
 }
 
-##TODO: Function to read our specified mapping format (csv or xls wld be OK)
-#
-#   INPUT: Read a mapping file
-#   OUTPUT:
-read.pheno.file<-function(file)
+#INPUT: filename
+#OUTPUT AnnotatedDataFrame object
+.read.mapping.analyte<-function(analyte.file)
 {
-  pD<-read.csv(file)
+  df<-read.csv(analyte.file, header=TRUE)
+  colnames(df)<-tolower(colnames(df))
+  if(length(df)!=2 | !all(colnames(df)%in%c("analyte","bid")))
+  {
+    stop("The analyte mapping file should be a csv file with two columns 'analyte' and 'bid'\n")
+  }
+  else
+  {
+    featureData<-as(df, "AnnotatedDataFrame")
+  }
+  return(featureData)
+}
+
+#INPUT: filename
+#OUTPUT: AnnotatedDataFrame object
+.read.mapping.pheno<-function(pheno.file)
+{
+  df <-read.csv(pheno.file, colClasses="factor")
+  colnames(df)<-tolower(colnames(df))
+  phenoData<-as(df, "AnnotatedDataFrame")
+  return(phenoData)
 }
 
 ### Summarize to MFIs and add standardCurves informations
@@ -127,8 +159,8 @@ BAMAsummarize<-function(from,type="MFI")
 		  mfiSet@unit="MFI"
 		  
 		  df<-melt(mfiSet)
-      # subselects controls
-		  df<-subset(df, concentration!=0 & control==1)		  
+      # subselects standards
+		  df<-subset(df, concentration!=0 & tolower(sample_type)=="standard")		  
 		  # Split by plate
 		  sdf<-split(df,df$plate)
       df2<-lapply(sdf,.fit_sc)
@@ -143,7 +175,7 @@ BAMAsummarize<-function(from,type="MFI")
 {
   inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
   
-  nCtrl<-length(unique(df$well))
+  nCtrl<-length(unique(df$well)) #number of wells with standards
   df.split<-split(df, df$analyte)
   coeffs<-lapply(df.split, function(x){
     res<-drm(log(mfi) ~ concentration, data=x,fct=LL.5())
@@ -163,7 +195,22 @@ BAMAsummarize<-function(from,type="MFI")
     li[[i]]<-rep(sapply(coeffs, "[[", i), each=nCtrl)
   }
   df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, li)
+  print(nCtrl)
   return(df2)
 }
 
-	  
+read.raw.bioplex<-function(filename){
+  xml<-xmlTreeParse(filename)
+  root<-xmlRoot(xml)
+  
+}
+
+.read.well<-function(node){
+  infos<-xmlAttrs(node) #Events: number of measures. NumberColumns. Column_1, Column_2.. : colnames.
+  str<-xmlValue(node) #a single str with " " and  "\n"
+  ss<-unlist(strsplit(str, split="\n"))
+  sss<-strsplit(ss, split=" ")
+  df<-do.call(rbind, lapply(sss, as.numeric))
+  colnames(df)<-infos[-c(1,2)] ##TODO: probably useless, should be done after merging everything
+  return(df)
+}  

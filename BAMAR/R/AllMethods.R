@@ -68,9 +68,9 @@ setMethod("melt","BAMAset",
 function(x)
   {
   # Use the melt function in reshape2
-  # This generates a dataframe analyte, sample, intensity
+  # This generates a dataframe analyte, sample, RP1
   df<-reshape2::melt(exprs(x))
-  names(df)<-c("intensity","analyte","filename")
+  names(df)<-c("RP1","analyte","filename")
 
 #   l.sample<-length(exprs(x))
 #   l.analyte<-length(exprs(x)[[1]])
@@ -93,7 +93,7 @@ setMethod("melt","BAMAsummary",
           function(x)
           {
             # Use the melt function in reshape2
-            # This generates a dataframe analyte, sample, intensity
+            # This generates a dataframe analyte, sample, RP1
             df<-reshape2::melt(exprs(x))
             
             names(df)<-c("analyte","filename",tolower(x@unit))            
