@@ -5,9 +5,6 @@
 #@mbama: A melted BAMAObject, or a BAMAObject?
 #@trim: A logical, remove outliers if TRUE (5%)
 splitAnalytes2<-function(mbama, trim=TRUE){
-#IMPORTANT fields:
-# well_id control_idx group_name  sample_type analyte RP1
-##TODO: Change the field names to match the ones in BAMAR
   #remove background and standards
   df<-subset(mbama, tolower(sample_type)!="standard" & tolower(sample_type)!="background" & tolower(sample_type)!="unmarked")
   df<-droplevels(df)
@@ -63,14 +60,13 @@ adjustRepeats2<-function(analyte, mbpg=99, mbpw=30){
       if(min(numbeads) > mbpw && length(levels(an_group[[grp]]$well_id)) > 1) {
         #Huber regression
         fit_huber <- rlm(RP1~well_id,data=an_group[[grp]],contrasts=list(well_id="contr.sum"),scale.est='proposal 2',k=1.345,maxit=100)
-        coef.rep <- c(coef(fit_huber)[-1],-sum(coef(fit_huber)[-1])) ##TODO: check why the last well is getting a different value
+        coef.rep <- c(coef(fit_huber)[-1],-sum(coef(fit_huber)[-1]))
         names(coef.rep) <- levels(an_group[[grp]]$well_id)
         for ( k in levels(an_group[[grp]]$well_id) ) { 
           an_group[[grp]][an_group[[grp]]$well_id==k,"rep_effect"] <- coef.rep[k] #adds a column for rep_effect
         }   
       } else {     # multiple reps but insufficient beads
         cat('too few beads per well: group_name=', names(an_group)[grp], ', beads=', nrow(an_group[[grp]]), ', well=', which.min(numbeads), '(',min(numbeads),'). merged with other wells\n',sep="")
-        ##for this group, we merge everything
         an_group[[grp]][,"rep_effect"]<-0
         #for ( k in levels(an_group[[grp]]$well_id) ) { 
           #an_group[[grp]][an_group[[grp]]$well_id==k,"rep_effect"] <- 0
@@ -87,7 +83,6 @@ adjustRepeats2<-function(analyte, mbpg=99, mbpw=30){
 logtransfit.group2 <- function( analyte, SB=1, maxIter=5 ) {
 # logtrans (library MASS) regression fitting for SAxCyB ANOVA model
 # - simultaneously fit independent groups
-  time1<-system.time(1)
   ctrl_lvls <- levels(analyte$control_idx)
   # construct a regession formula
   contrlist <- list(group_name="contr.sum")
@@ -111,7 +106,7 @@ logtransfit.group2 <- function( analyte, SB=1, maxIter=5 ) {
       cur_fit0<-lm(f, data=cur_ctrlgrp)
       w<-1/unsplit(lapply(split(resid(cur_fit0),cur_ctrlgrp$group_name), function(x){rep(mean(x^2),length(x))}),  cur_ctrlgrp$group_name)
       cur_fit <- lm(f, data=cur_ctrlgrp, weights=w )
-      time1<-time1+system.time(upd<-updateRepeatEffects2(cur_ctrlgrp, cur_fit))
+      upd<-updateRepeatEffects2(cur_ctrlgrp, cur_fit)
       cur_ctrlgrp$rep_effect<-cur_ctrlgrp$rep_effect+upd$expanded_delta_rep_effect
       D<-unlist(upd$delta_rep_effect)
       if(mean(D^2)<0.1) {break}
@@ -126,7 +121,6 @@ logtransfit.group2 <- function( analyte, SB=1, maxIter=5 ) {
     ret[[ctrllvl]]<-list(ht=cur_ht,coef_full=cur_coef,shift=best_shift,ctrllvl=ctrllvl,contrasts='treatment')
   }
   rets=list(fits=ret, transformedFI=y)
-  print(time1)
   return(rets)
 }
 
@@ -186,8 +180,8 @@ saxcyBfit<-function(analyte, mSB){
   an_repEffect<-adjustRepeats2(analyte)
   model<-logtransfit.group2(an_repEffect, mSB)
   fits<-model$fits
-  analyte$transformedFI<-model$transformedFI
-  return(list(fits=fits, analyte=analyte))
+  an_repEffect$transformedFI<-model$transformedFI
+  return(list(fits=fits, analyte=an_repEffect))
 }
 
 

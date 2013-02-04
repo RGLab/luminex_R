@@ -5,7 +5,7 @@ Version: 0.1.0
 Author: Renan Saueraud <rsautera@fhcrc.org>
 Maintainer: Renan Sauteraud <rsautera@fhcrc.org>
 Depends: R(>= 2.15.0), Biobase
-Imports: flowCore, XML, gdata, tools, reshape2, ggplot2, drc
+Imports: flowCore, XML, gdata, tools, reshape2, ggplot2, drc, stats
 Suggests:
 Description: Provides S4 structures and functions to deal with Luminex Bead Array Multiplex Assay data
 biocViews: Peptide Microarray

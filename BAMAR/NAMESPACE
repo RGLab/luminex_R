@@ -4,7 +4,10 @@
 importFrom(drc, drm, LL.5)
 
 #gdata
-importFrom(gdata, read.xls)
+importFrom(gdata, read.xls, dropleve)
+
+#stats
+importFrom(stats, relevel)
 
 #XML
 importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
