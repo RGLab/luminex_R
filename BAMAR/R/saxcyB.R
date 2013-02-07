@@ -11,9 +11,9 @@ splitAnalytes2<-function(mbama, trim=TRUE){
   analytes<-split(df, df$analyte)
   if(trim){
     analytes<-lapply(analytes, function(x){#one elt/bead
-      trimidx<-unsplit(lapply(split(x, x$well_id), function(y){#one elt/well
+      trimidx<-unsplit(lapply(split(x, x$well), function(y){#one elt/well
         y$RP1 < mean(y$RP1,trim=0.05)+4*sd.trim(y$RP1,0.05)
-        }), x$well_id)
+        }), x$well)
         x[trimidx,]
       })
   }
@@ -55,21 +55,21 @@ adjustRepeats2<-function(analyte, mbpg=99, mbpw=30){
 
   for ( grp in 1:length(an_group) ) {
     if(nrow(an_group[[grp]]) > mbpg) {
-      an_group[[grp]]$well_id <- drop.levels(an_group[[grp]]$well_id)
-      numbeads<-summary(an_group[[grp]]$well_id)    #number of beads per rep
-      if(min(numbeads) > mbpw && length(levels(an_group[[grp]]$well_id)) > 1) {
+      an_group[[grp]]$well <- drop.levels(an_group[[grp]]$well)
+      numbeads<-summary(an_group[[grp]]$well)    #number of beads per rep
+      if(min(numbeads) > mbpw && length(levels(an_group[[grp]]$well)) > 1) {
         #Huber regression
-        fit_huber <- rlm(RP1~well_id,data=an_group[[grp]],contrasts=list(well_id="contr.sum"),scale.est='proposal 2',k=1.345,maxit=100)
+        fit_huber <- rlm(RP1~well,data=an_group[[grp]],contrasts=list(well="contr.sum"),scale.est='proposal 2',k=1.345,maxit=100)
         coef.rep <- c(coef(fit_huber)[-1],-sum(coef(fit_huber)[-1]))
-        names(coef.rep) <- levels(an_group[[grp]]$well_id)
-        for ( k in levels(an_group[[grp]]$well_id) ) { 
-          an_group[[grp]][an_group[[grp]]$well_id==k,"rep_effect"] <- coef.rep[k] #adds a column for rep_effect
+        names(coef.rep) <- levels(an_group[[grp]]$well)
+        for ( k in levels(an_group[[grp]]$well) ) { 
+          an_group[[grp]][an_group[[grp]]$well==k,"rep_effect"] <- coef.rep[k] #adds a column for rep_effect
         }   
       } else {     # multiple reps but insufficient beads
         cat('too few beads per well: group_name=', names(an_group)[grp], ', beads=', nrow(an_group[[grp]]), ', well=', which.min(numbeads), '(',min(numbeads),'). merged with other wells\n',sep="")
         an_group[[grp]][,"rep_effect"]<-0
-        #for ( k in levels(an_group[[grp]]$well_id) ) { 
-          #an_group[[grp]][an_group[[grp]]$well_id==k,"rep_effect"] <- 0
+        #for ( k in levels(an_group[[grp]]$well) ) { 
+          #an_group[[grp]][an_group[[grp]]$well==k,"rep_effect"] <- 0
         #}   
       }   
       ret<-rbind(ret, an_group[[grp]])
@@ -93,7 +93,6 @@ logtransfit.group2 <- function( analyte, SB=1, maxIter=5 ) {
   y <- log( y + best_shift )
   analyte$y <- y
 
-  #ret<-list()##TODO: remove or fix the size
   ret<-vector('list', length(ctrl_lvls))
   names(ret)<-ctrl_lvls
   for(ctrllvl in ctrl_lvls){
@@ -138,10 +137,10 @@ updateRepeatEffects2<-function(cur_ctrlgrp, cur_fit){
     curGrp<-an_group[[i]]
     curGrp<-droplevels(curGrp)
     #gradient
-    g<-unlist(lapply(split(curGrp, curGrp$well_id),function(x){
+    g<-unlist(lapply(split(curGrp, curGrp$well),function(x){
       -sum((x$y-gam[i])/exp(x$y))}))
     #Hessian
-    H<-unlist(lapply(split(curGrp, curGrp$well_id),function(x){
+    H<-unlist(lapply(split(curGrp, curGrp$well),function(x){
       sum((x$y+1)/exp(2*x$y))}))
     if(all(H>1e-5)){ #equality constrained Newton
       descent_dir<- -g/H - sum(-g/H)/H/(sum(1/H))
@@ -149,10 +148,10 @@ updateRepeatEffects2<-function(cur_ctrlgrp, cur_fit){
       descent_dir<- -g+mean(g)
     }
     #expand descent direction for evaluating the objective
-    names(descent_dir)<-levels(curGrp$well_id)
+    names(descent_dir)<-levels(curGrp$well)
     exp_descent_dir<-numeric(nrow(curGrp))
-    for(kk in levels(curGrp$well_id)){
-      exp_descent_dir[curGrp$well_id==kk]<-descent_dir[kk]
+    for(kk in levels(curGrp$well)){
+      exp_descent_dir[curGrp$well==kk]<-descent_dir[kk]
     }
     #backtracking line search
     t<-1
@@ -192,7 +191,7 @@ getMFI2<-function(analyte){
     group_name=analyte$group_name,
     sample_type=analyte$sample_type,
     control_idx=analyte$control_idx,
-    well_id=analyte$well_id), median)
+    well=analyte$well), median)
   names(ret)[5]="MFI"
   return(ret)
 }
@@ -318,27 +317,19 @@ selThreshold<-function(deltaList, powerThresholds=c(0.19,0.29,0.39,0.49,0.59,0.6
   return(threshold)
 }
 
-##TODO: decide wether I want to use saxyObj or fit
-# returns a data.frame with the alphas for each fit
-getAlphas<-function(saxyObj){
-  alphas<-sapply(saxyObj$fits, "[[", "coef_full")[-1,]
-  return(alphas)
-}
-
-
 #R#Probably no need for this function / or maybe just once for the actual PowerThreshold
 popCSV2<-function(filename, isAppended, fit, MFI, analyte, pvals, delta, mSB, sdSB){
   bead_id = unique(analyte$bid)
   bead_name = unique(analyte$analyte)
   #^done
-  rep_eff<-unlist(lapply(split(analyte,analyte$well_id),function(x) {x$rep_effect[1]}))
-  b<-data.frame(well_id=levels(analyte$well_id),beta=rep_eff[levels(analyte$well_id)])
+  rep_eff<-unlist(lapply(split(analyte,analyte$well),function(x) {x$rep_effect[1]}))
+  b<-data.frame(well=levels(analyte$well),beta=rep_eff[levels(analyte$well)])
   mb<-merge(mfi,b)
   betastr <- unlist(lapply(split(mb,mb$group_name), function(x) { paste(format(x$beta,digits=5,trim=T),collapse=";")} ))
   num_reps0 <- unlist(lapply((tapply(analyte$rep, analyte$group_idx, unique)),length))
   grp_names <- levels(analyte$group_idx)
   exp_names <- as.character(unlist(lapply(split(analyte,analyte$group_idx),function(x) {x$group_name[1]} )))
-  well_id <- unlist(lapply(split(MFI,MFI$group_name), function(x) { paste(x$well_id,collapse=";")} ))
+  well <- unlist(lapply(split(MFI,MFI$group_name), function(x) { paste(x$well,collapse=";")} ))
   MFIstr <- unlist(lapply(split(MFI,MFI$group_name), function(x) { paste(x$MFI,collapse=";")} ))
   sample_idx <- unlist(lapply(split(analyte,analyte$group_name), function(x) { x$sample_idx[1] } ))
   control_idx <- unlist(lapply(split(analyte,analyte$group_name), function(x) { x$control_idx[1] } ))
@@ -377,11 +368,66 @@ popCSV2<-function(filename, isAppended, fit, MFI, analyte, pvals, delta, mSB, sd
         nreps <- num_reps0
         names(nreps) <- exp_names
         nreps<- nreps[as.character(maxMFI$group_name)]
-        basic <- data.frame( bead_id=bead_id, bead_name=bead_name, group_name=maxMFI$group_name, sample_idx=sample_idx[as.character(maxMFI$group_name)], control_idx=control_idx[as.character(maxMFI$group_name)], well_id=well_id, rep=nreps,  MFI=MFIstr, maxMFI=maxMFI$maxMFI, mSB=mSB, sdSB=sdSB, delta=delta, alpha=alphas[as.character(maxMFI$group_name)], beta=betastr )
+        basic <- data.frame( bead_id=bead_id, bead_name=bead_name, group_name=maxMFI$group_name, sample_idx=sample_idx[as.character(maxMFI$group_name)], control_idx=control_idx[as.character(maxMFI$group_name)], well=well, rep=nreps,  MFI=MFIstr, maxMFI=maxMFI$maxMFI, mSB=mSB, sdSB=sdSB, delta=delta, alpha=alphas[as.character(maxMFI$group_name)], beta=betastr )
 
         ma<-data.frame( bead_id=bead_id, bead_name=bead_name, sample_idx=sample_idx[as.character(names(diff.subj))], control_idx=control_idx[as.character(names(diff.subj))], group_name=names(diff.subj), diff.subj=diff.subj, sd.diff.subj=sd.diff.subj, p.diff.uni=p.diff.uni, sig.p.diff.uni=sigcode.diff.uni, p.diff.uni.mcp=p.diff.uni.mcp, sig.p.diff.uni.mcp=sigcode.diff.uni.mcp, p.MFIttest=p.MFIttest, sig.p.MFIttest=sigcode.MFIttest, p.MFIttest.mcp=p.MFIttest.mcp, sig.p.MFIttest.mcp=sigcode.MFIttest.mcp, p.fullFIttest=p.fullFIttest, sig.p.fullFIttest=sigcode.fullFIttest, p.fullFIttest.mcp=p.fullFIttest.mcp, sig.p.fullFIttest.mcp=sigcode.fullFIttest.mcp )
 
         mtot <- merge(basic,ma,by=c("bead_id","bead_name","control_idx","sample_idx","group_name"),all=T)
 
         write.table( mtot, file=filename, append=isAppended, row.names=FALSE, col.names=!isAppended, sep=",", quote=FALSE )
+}
+
+saxcyB<-function(bama){
+	mbama<-melt(bama)
+	san<-splitAnalytes2(mbama)
+	mSB <- lapply(san, function(x){mean(x$RP1, trim=0.05)})
+	sdSB<- lapply(san, function(x){sd.trim(x$RP1, trim=0.05)})
+	deltas <- c(0, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32)
+	PowerThresholds <- c(0.19,0.29,0.39,0.49,0.59,0.69,0.79)
+	
+	pList<-vector('list', length(PowerThresholds))
+	alist<-beadsList<-ctrList<-groups<-c()
+	
+	for(idxk in 1:length(san)){
+		saxcyObj <- saxcyBfit( san[[idxk]], mSB[[idxk]] )
+		mfi2 <- getMFI2( saxcyObj$analyte )
+		
+		
+		for ( idxFit in 1:length(saxcyObj$fits) ) {
+			# select delta by power estimation
+			power.est<-array(length(deltas))
+			for ( delta.idx in 1:length(deltas) ) {
+				power.est[delta.idx]<-mean(SAxCyBpower.ineq(saxcyObj$fits[[idxFit]], deltas[delta.idx], abs(coef(saxcyObj$fits[[idxFit]]$ht)) ))
+			}
+			mfi <- drop.levels(subset(mfi2,control_idx==saxcyObj$fits[[idxFit]]$ctrllvl) )
+			an <- subset(saxcyObj$analyte,control_idx==saxcyObj$fits[[idxFit]]$ctrllvl )
+			
+			# compact group ids
+			an$group_name = drop.levels(an$group_name)
+			ctrl_name <- as.character(unique(an[an$sample_type=="control", "group_name"]))
+			
+			alpha<-saxcyObj$fits[[idxFit]]$coef_full
+			len<-length(alpha)-1 #groups in the fit - ctrl
+			groups<-c(groups, substr(names(alpha[-1]), 11, nchar(names(alpha[-1]))))
+			ctrList<-c(ctrList, rep(ctrl_name, len))
+			aList<-c(aList,alpha[-1])
+			beadsList<-c(beadsList, rep(names(san)[[idxk]], len))
+			
+			# reset reference group id to control
+			an$group_name<-relevel(drop.levels(an$group_name),ref=ctrl_name)			
+			qvals<-simplepval(saxcyObj$fits[[idxFit]], mfi, an )
+			
+			#save the delta and pvals
+			for ( PowerThreshold in PowerThresholds ) {
+				pt<-as.character(PowerThreshold)
+				delta<-deltas[max(which(power.est>PowerThreshold))]
+				dList[[pt]]<-c(dList[[pt]], rep(delta, length(levels(an$group_name))))
+				pList[[pt]]<-c(pList[[pt]], SAxCyBpval(saxcyObj$fits[[idxFit]], delta)$p.schuirmann_t.mcp)
+				
+			}
+		}
+	}
+	thresh<-selThreshold(dList, PowerThresholds) #Select threshold using deltas
+	df<-data.frame(bead=beadsList, group=groups, control=ctrList, alpha=aList, p.val=pList[[as.character(thresh)]])
+	return(df)
 }

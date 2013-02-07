@@ -143,6 +143,7 @@ read.luminex<-function(path="./")
 {
   df <-read.csv(pheno.file, colClasses="factor")
   colnames(df)<-tolower(colnames(df))
+  df$concentration<-as.numeric(levels(df$concentration))[df$concentration] #More efficient than fact->char->numeric
   phenoData<-as(df, "AnnotatedDataFrame")
   return(phenoData)
 }

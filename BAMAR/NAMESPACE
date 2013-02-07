@@ -15,6 +15,9 @@ importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
 #Tools
 importFrom(tools, file_ext, list_files_with_exts)
 
+#multcomp
+importFfrom(multcomp, glht)
+
 #flowCore stuff
 importMethodsFrom(flowCore, pData, exprs)
 importClassesFrom(flowCore, flowFrame, flowSet)
