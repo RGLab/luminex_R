@@ -61,8 +61,6 @@ read.luminex<-function(path="./")
   }
 
 
-  ## TODO add a function to read the file, sanitize it and check the format, column names, etc
-  ## Also check that the filenames match what's in the pheno file
   pheno.file<-list.files(path,pattern="phenotype",full.names=TRUE)
   if(length(pheno.file)==0)
   {
@@ -79,7 +77,7 @@ read.luminex<-function(path="./")
     filename<-unlist(lapply(all.files,function(x)tail(strsplit(x,"/")[[1]],1)))
     filename<-sub("^([^.]*).*", "\\1",filename)
     # Construct pheno data
-    # Well id based on last 3 characters
+    # Well id based on last 3 characters #R# This will only work for xPonent
     well<-unlist(lapply(filename,function(x){gsub("_", "", substr(x,nchar(x)-2,nchar(x)))}))  
     # plate.name repeat unique plate name by number of wells
     plate.name<-rep(plate.name,sapply(plate.name,function(x,all.files){length(grep(x,all.files))},all.files))
@@ -88,7 +86,7 @@ read.luminex<-function(path="./")
   }
   else
   {    
-    phenoData<-.read.mapping.pheno(pheno.file)
+    phenoData<-.read.mapping.pheno(path, pheno.file)
   }
   
   
@@ -139,11 +137,16 @@ read.luminex<-function(path="./")
 
 #INPUT: filename
 #OUTPUT: AnnotatedDataFrame object
-.read.mapping.pheno<-function(pheno.file)
+.read.mapping.pheno<-function(path, pheno.file)
 {
   df <-read.csv(pheno.file, colClasses="factor")
   colnames(df)<-tolower(colnames(df))
   df$concentration<-as.numeric(levels(df$concentration))[df$concentration] #More efficient than fact->char->numeric
+  for(i in 1:nrow(df)){
+	  if(length(list.files(paste(path, df[i,"plate"], sep="/"),pattern=as.character(df[i,"filename"])))==0){
+		stop("The file ", as.character(df[i, "filename"]), " is not found in the given path. Verify plate and filename information in phenotype mapping file")  
+	  }
+  }
   phenoData<-as(df, "AnnotatedDataFrame")
   return(phenoData)
 }
@@ -200,18 +203,27 @@ BAMAsummarize<-function(from,type="MFI")
   return(df2)
 }
 
+#returns the exprs list
+#filename(well) -> bid(analyte)
 read.raw.bioplex<-function(filename){
   xml<-xmlTreeParse(filename)
   root<-xmlRoot(xml)
-  
+#  nWells<-xmlSize(root[["Wells"]])
+#  wNames<-xmlSApply(root[["Wells"]], xmlAttrs)#row col wellNo
+  res<-xmlSApply(root[["Wells"]], .read.well)
+  dfl<-lapply(res, as.data.frame)
+  exprs<-lapply(dfl, function(x){
+	  split(x, x$RegionNumber)
+  })#exprs wname-bid
 }
 
 .read.well<-function(node){
+  node<-node[["BeadEventData"]]
   infos<-xmlAttrs(node) #Events: number of measures. NumberColumns. Column_1, Column_2.. : colnames.
   str<-xmlValue(node) #a single str with " " and  "\n"
   ss<-unlist(strsplit(str, split="\n"))
   sss<-strsplit(ss, split=" ")
   df<-do.call(rbind, lapply(sss, as.numeric))
-  colnames(df)<-infos[-c(1,2)] ##TODO: probably useless, should be done after merging everything
+  colnames(df)<-infos[-c(1,2)] ##TODO: probably slow, should be done after merging everything
   return(df)
 }  
