@@ -1,0 +1,2 @@
+* Throughout the prog, only the bid should be used (because bead_names are not always available). Bead_name should only be used where it is displayed
+* If available, all wells should be displayed using A1-H12. But mb use smth else under the hood.

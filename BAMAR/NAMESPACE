@@ -4,7 +4,7 @@
 importFrom(drc, drm, LL.5)
 
 #gdata
-importFrom(gdata, read.xls, dropleve)
+importFrom(gdata, read.xls)
 
 #stats
 importFrom(stats, relevel)
@@ -16,7 +16,7 @@ importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
 importFrom(tools, file_ext, list_files_with_exts)
 
 #multcomp
-importFfrom(multcomp, glht)
+importFrom(multcomp, glht)
 
 #flowCore stuff
 importMethodsFrom(flowCore, pData, exprs)
