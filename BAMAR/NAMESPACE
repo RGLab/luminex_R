@@ -10,7 +10,7 @@ importFrom(gdata, read.xls)
 importFrom(stats, relevel)
 
 #XML
-importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue)
+importFrom(XML, xmlTreeParse, xmlRoot, xmlAttrs, xmlValue, xmlSApply, xmlSize, xmlName)
 
 #Tools
 importFrom(tools, file_ext, list_files_with_exts)
@@ -19,6 +19,7 @@ importFrom(tools, file_ext, list_files_with_exts)
 importFrom(multcomp, glht)
 
 #flowCore stuff
+importFrom(flowCore, read.FCS)
 importMethodsFrom(flowCore, pData, exprs)
 importClassesFrom(flowCore, flowFrame, flowSet)
 
@@ -41,4 +42,4 @@ scale_x_log10, scale_y_log10)
 exportMethods("show", "pData", "fData", "exprs", "fit", "melt", "[",
 	"geom_sc")
 exportClasses("BAMAset","BAMAsummary")
-export("read.luminex", "BAMAsummarize")
+export("read.experiment", "BAMAsummarize")
