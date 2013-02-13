@@ -12,8 +12,8 @@ read.experiment<-function(path="./"){
     type<-"XPONENT"; typeExt<-"csv"
   }
   
-  all.files<-lapply(plates,list_files_with_exts,exts=typeExt)
-  
+  all.files<-unlist(lapply(plates,list_files_with_exts,exts=typeExt))  
+
   #pData
   if(length(pheno.file)==0){#Get plate/file/well based on the structure of the folder
     warning("No pheno data provided, the 'phenotype.csv' file is missing\n")
@@ -26,8 +26,9 @@ read.experiment<-function(path="./"){
       plate<-rep(plates, wellsPerFile)
       plate<-sapply(strsplit(plate, split="/"), tail, 1)
     } else {
-      fNames<-unlist(lapply(all.files, lapply, function(x)tail(strsplit(x,"/")[[1]],1)))
-      plate<-rep(plates, sapply(all.files, length))
+      len<-lapply(plates, function(x){length(list_files_with_exts(x,exts=typeExt))})
+      fNames<-unlist(lapply(all.files, function(x)tail(strsplit(x,"/")[[1]],1)))
+      plate<-rep(plates, len)
       plate<-sapply(strsplit(plate, split="/"), tail, 1)
       if(type=="XPONENT"){
         wells<-.getXponentWellsID(fNames)
@@ -44,10 +45,10 @@ read.experiment<-function(path="./"){
   }
 
   #exprs
-  if(type=="XPONENT"){exprs<-lapply(all.files, .read.exprs.xPonent)
-  } else if(type=="LXB"){ exprs<-lapply(all.files, .read.exprs.lxb)
-  } else {exprs<-lapply(all.files, .read.exprs.bioplex)}
-  names(exprs)<-plates
+  if(type=="XPONENT"){exprs<-.read.exprs.xPonent(all.files)
+  } else if(type=="LXB"){ exprs<-.read.exprs.lxb(all.files)
+  } else {exprs<-.read.exprs.bioplex(all.files)}
+  #names(exprs)<-plates
 
   #fData
   if(length(analyte.file)==0){#Only the bid available
@@ -56,14 +57,14 @@ read.experiment<-function(path="./"){
       featureData<-.read.lxd(lxdFile)
     } else{
       warning("Can't map bead ids to analyte, the 'analyte.csv' file is missing\n")
-      bid<-unique(unlist(lapply(exprs, lapply, names)))
+      bid<-unique(unlist(lapply(exprs, names)))
       analyte<-paste("unknown", bid, sep="")
       featureData<-as(data.frame(analyte=analyte, bid=bid), 'AnnotatedDataFrame')
     }
   } else { #checks: bid in mapping not in data and vice versa
     featureData<-.read.analyte.xPonent(analyte.file)
   }
-  beadInExprs<-unique(unlist(lapply(exprs, lapply, names)))
+  beadInExprs<-unique(unlist(lapply(exprs, names)))
   notMappedBid<-beadInExprs[!beadInExprs%in%pData(featureData)$bid]
   if(length(notMappedBid>0)){
     cat(length(notMappedBid),"of the beads found in the data are not found in the mapping file:", notMappedBid,"\n")
@@ -116,28 +117,34 @@ read.experiment<-function(path="./"){
   for(fileIdx in 1:nFiles){
     suppressWarnings(lxb<-read.FCS(filenames[[fileIdx]]))
     asdf<-as.data.frame(exprs(lxb))
-    slxb<-split(asdf,asdf$RID)
+    slxb<-split(asdf$RP1,asdf$RID)
     exprsList[[fileIdx]]<-slxb
   }
   return(exprsList)
 }
+
 .read.exprs.bioplex<-function(filenames){
-  xml<-xmlTreeParse(filenames)
-  root<-xmlRoot(xml)
-  wNames<-xmlSApply(root[["Wells"]], function(x){
-    paste(LETTERS[as.numeric(xmlAttrs(x)["RowNo"])], xmlAttrs(x)["ColNo"], sep="")
-  })
-  exprsList<-xmlSApply(root[["Wells"]], function(x){
-    str<-xmlValue(x[["BeadEventData"]])
-    ss<-unlist(strsplit(str, split="\n"))
-    sss<-strsplit(ss, split=" ")
-    asdf<-as.data.frame(do.call(rbind, lapply(sss, as.numeric)))
-    ret<-split(asdf[,2], asdf[,1])#bid
-    return(ret)
-  })
-  names(exprsList)<-wNames
-  return(exprsList)
+  exprs<-list()
+  for(filename in filenames){
+    xml<-xmlTreeParse(filename)
+    root<-xmlRoot(xml)
+    wNames<-xmlSApply(root[["Wells"]], function(x){
+      paste(LETTERS[as.numeric(xmlAttrs(x)["RowNo"])], xmlAttrs(x)["ColNo"], sep="")
+    })
+    exprsFile<-xmlSApply(root[["Wells"]], function(x){
+      str<-xmlValue(x[["BeadEventData"]])
+      ss<-unlist(strsplit(str, split="\n"))
+      sss<-strsplit(ss, split=" ")
+      asdf<-as.data.frame(do.call(rbind, lapply(sss, as.numeric)))
+      ret<-split(asdf[,2], asdf[,1])#bid
+      return(ret)
+    })
+    names(exprsFile)<-paste(filename, wNames, sep="_")
+    exprs<-c(exprs, exprsFile)
+  }
+  return(exprs)
 }
+  
   
 
 .read.analyte.xPonent<-function(analyte.file){
@@ -181,4 +188,54 @@ read.experiment<-function(path="./"){
   colnames(mat)<-c("analyte", "bid")
   featureData<-as(as.data.frame(mat), 'AnnotatedDataFrame')
   return(featureData)
+}
+
+### Summarize to MFIs and add standardCurves informations
+BAMAsummarize<-function(from,type="MFI"){
+  mat<-lapply(exprs(from),sapply,median)
+  #mat<-t(do.call("rbind", lapply(mat, function(x){do.call("rbind",x)})))
+  mat<-t(do.call("rbind",mat))
+  mfiSet<-new("BAMAsummary", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
+  exprs(mfiSet)<-mat
+  pData(mfiSet)<-pData(from)
+  fData(mfiSet)<-fData(from)
+  mfiSet@unit="MFI"
+  
+  df<-melt(mfiSet)
+  # subselects standards
+  df<-subset(df, concentration!=0 & tolower(sample_type)=="standard")		  
+  # Split by plate
+  sdf<-split(df,df$plate)
+  df2<-lapply(sdf,.fit_sc)
+  df2<-do.call("rbind",df2)
+  mfiSet@fit<-df2
+  mfiSet
+}	  
+
+.fit_sc<-function(df)
+{
+  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
+  
+  nCtrl<-length(unique(df$well)) #number of wells with standards
+  df.split<-split(df, df$analyte)
+  coeffs<-lapply(df.split, function(x){
+    res<-drm(log(mfi) ~ concentration, data=x,fct=LL.5())
+    return(res$parmMat)
+  })
+  
+  calc_conc<-p100rec<-numeric(nrow(df))
+  for(idx in 1:nrow(df))
+  {
+    calc_conc[idx]<-inv(df[idx,"mfi"], coeffs[[df[idx,"analyte"]]])
+    p100rec[idx]<-calc_conc[idx]/df[idx,"concentration"]*100
+  }
+  li<-vector('list', 5)
+  names(li)<-c('b','c','d','e','f')
+  for(i in 1:5)
+  {
+    li[[i]]<-rep(sapply(coeffs, "[[", i), each=nCtrl)
+  }
+  df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, li)
+  print(nCtrl)
+  return(df2)
 }

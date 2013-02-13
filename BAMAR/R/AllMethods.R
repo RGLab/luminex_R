@@ -72,17 +72,6 @@ function(x)
   df<-reshape2::melt(exprs(x))
   names(df)<-c("RP1","analyte","filename")
 
-#   l.sample<-length(exprs(x))
-#   l.analyte<-length(exprs(x)[[1]])
-#   l.bead.analyte<-sapply(exprs(x),function(x)sum(sapply(x,length)))
-#   
-#   pd.long<-sapply(1:l.sample,function(i,x,length)sapply(x[i,],rep,length[i]),length=l.bead.analyte,x=pData(x))                  
-#   pd.long<-as.data.frame(do.call("rbind",pd.long))
-#   
-#   # Combine data and metadata
-#   df<-cbind(df,pd.long)  
-
-  
   df<-merge(df,pData(x),by="filename")
   df<-merge(df,fData(x),by="analyte")
   return(df)
@@ -95,8 +84,11 @@ setMethod("melt","BAMAsummary",
             # Use the melt function in reshape2
             # This generates a dataframe analyte, sample, RP1
             df<-reshape2::melt(exprs(x))
-            
-            names(df)<-c("analyte","filename",tolower(x@unit))            
+            names(df)<-c("bid","filename",tolower(x@unit))            
+            fileId<-lapply(strsplit(as.character(df[,2]), split="/"), tail, 2)
+            plate<-sapply(fileId, "[[", 1)
+            filename<-sapply(fileId, "[[", 2)
+            df<-cbind(df[,c(1,3)],plate, filename)
             #l.sample<-ncol(x)
             #l.analyte<-nrow(x)
             
@@ -109,8 +101,8 @@ setMethod("melt","BAMAsummary",
 #             df<-cbind(df,pd.long)  
 #            
             ## merge all information
-            df<-merge(df,pData(x),by="filename")
-            df<-merge(df,fData(x),by="analyte")
+            df<-merge(df,pData(x),by=c("filename", "plate"))
+            df<-merge(df,fData(x),by="bid")
             return(df)
           })
 
