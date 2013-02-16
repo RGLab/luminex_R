@@ -193,7 +193,6 @@ read.experiment<-function(path="./"){
 ### Summarize to MFIs and add standardCurves informations
 BAMAsummarize<-function(from,type="MFI"){
   mat<-lapply(exprs(from),sapply,median)
-  #mat<-t(do.call("rbind", lapply(mat, function(x){do.call("rbind",x)})))
   mat<-t(do.call("rbind",mat))
   mfiSet<-new("BAMAsummary", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
   exprs(mfiSet)<-mat
@@ -229,13 +228,9 @@ BAMAsummarize<-function(from,type="MFI"){
     calc_conc[idx]<-inv(df[idx,"mfi"], coeffs[[df[idx,"analyte"]]])
     p100rec[idx]<-calc_conc[idx]/df[idx,"concentration"]*100
   }
-  li<-vector('list', 5)
-  names(li)<-c('b','c','d','e','f')
-  for(i in 1:5)
-  {
-    li[[i]]<-rep(sapply(coeffs, "[[", i), each=nCtrl)
-  }
-  df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, li)
+  sortCoeffs<-do.call("rbind", lapply(coeffs[df$analyte], t))
+  colnames(sortCoeffs)<-c('b','c','d','e','f')
+  df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, sortCoeffs)
   print(nCtrl)
   return(df2)
 }
