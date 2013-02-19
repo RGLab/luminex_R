@@ -71,8 +71,8 @@ read.experiment<-function(path="./"){
     pData(featureData)<-rbind(pData(featureData), data.frame(analyte=paste("unknown", notMappedBid, sep=""), bid=notMappedBid))
   }
 
-  BAMAset<-new("BAMAset", phenoData=phenoData, featureData=featureData, exprs=exprs)
-  return(BAMAset)
+  blum<-new("blum", phenoData=phenoData, featureData=featureData, exprs=exprs)
+  return(blum)
 }
 
 .getXponentWellsID<-function(filenames){
@@ -194,7 +194,7 @@ read.experiment<-function(path="./"){
 BAMAsummarize<-function(from,type="MFI"){
   mat<-lapply(exprs(from),sapply,median)
   mat<-t(do.call("rbind",mat))
-  mfiSet<-new("BAMAsummary", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
+  mfiSet<-new("bsum", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
   exprs(mfiSet)<-mat
   pData(mfiSet)<-pData(from)
   fData(mfiSet)<-fData(from)

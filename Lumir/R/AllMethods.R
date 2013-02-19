@@ -1,40 +1,40 @@
 # show method:
 #   Shows class, slots, number of analytes, total number of measures
 #
-setMethod("show", "BAMAset", function(object){
-  cat("An object of class BAMAset with",nrow(fData(object)),"analytes:","\n")
+setMethod("show", "blum", function(object){
+  cat("An object of class blum with",nrow(fData(object)),"analytes:","\n")
   cat("\t", as.character(head(fData(object)$analyte, 3)),"...", as.character(tail(fData(object)$analyte, 3)),"\n")
   cat(length(unlist(exprs(object), use.names=FALSE)), "measures of expression in", nrow(pData(object)),"wells, on", length(unique(pData(object)$plate)), "plates.","\n")
-  cat("And slots:", names(getSlots("BAMAset")),"\n")
+  cat("And slots:", names(getSlots("blum")),"\n")
 })
 
 #TODO: Add setters
 
 # pData method:
 #   phenoData accessor
-setMethod("pData", "BAMAset", function(object){
+setMethod("pData", "blum", function(object){
   return(pData(object@phenoData))
 })
 
 
 ## contains information about analytes
-setMethod("fData", "BAMAset", function(object){
+setMethod("fData", "blum", function(object){
   return(pData(object@featureData))
 })
 
 # exprs accessor for bead level data a la eSet
-setMethod("exprs", "BAMAset", function(object){
+setMethod("exprs", "blum", function(object){
   return(object@exprs)
 })
 
 # fit accessor for standard curve fitting information
 setGeneric("fit", function(object, ...) standardGeneric("fit"))
-setMethod("fit", "BAMAsummary",function(object){
+setMethod("fit", "bsum",function(object){
   return(object@fit)
 })
 
 # Subset method to subset a la eSet
-setMethod("[","BAMAset",
+setMethod("[","blum",
           function(x,i,j,..., drop=FALSE)
           {
             if(!missing(i))
@@ -49,7 +49,7 @@ setMethod("[","BAMAset",
               #Subset the analytes         
               bdata<-lapply(exprs(x),"[",i)              
             }            
-            newSet<-new('BAMAset'
+            newSet<-new('blum'
                         ,exprs=bdata
                         ,phenoData=x@phenoData[j,]
                         ,featureData=x@featureData[i,])
@@ -64,7 +64,7 @@ setGeneric("melt",function(x,...){
 })
 
 
-setMethod("melt","BAMAset",
+setMethod("melt","blum",
 function(x)
   {
   # Use the melt function in reshape2
@@ -78,7 +78,7 @@ function(x)
   
 })
 
-setMethod("melt","BAMAsummary",
+setMethod("melt","bsum",
           function(x)
           {
             # Use the melt function in reshape2
@@ -110,19 +110,19 @@ setMethod("melt","BAMAsummary",
 # formula
 # getter
 #setGeneric("formula", function(object, ...) standardGeneric("formula"))
-#setMethod("formula", "BAMAsummary", function(object){return(object@formula)})
+#setMethod("formula", "bsum", function(object){return(object@formula)})
 #--------
 # formula<-
 # setter
 setGeneric("formula<-", function(object, value, ...) standardGeneric("formula<-"))
-setReplaceMethod("formula", "BAMAsummary", function(object, value){object@formula<-value; object})
+setReplaceMethod("formula", "bsum", function(object, value){object@formula<-value; object})
 
 
 setGeneric("geom_sc", function(object, n=100, data = NULL, 
 				stat = "identity", position = "identity", 
 				na.rm = FALSE, ...) standardGeneric("geom_sc"))
 
-setMethod("geom_sc", "BAMAsummary",
+setMethod("geom_sc", "bsum",
           function(object, n=100, mapping = NULL,
                    stat = "identity", position = "identity", 
                    na.rm = FALSE, ...)

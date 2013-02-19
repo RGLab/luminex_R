@@ -1,5 +1,5 @@
 #  #Bead level information
-setClass("BAMAset",
+setClass("blum",
          representation=representation(
            ## Contains information about samples           
            phenoData="AnnotatedDataFrame",
@@ -10,8 +10,7 @@ setClass("BAMAset",
            exprs="list")
          )
 
-#setClass("BAMAsummary", contains="ExpressionSet", representation(unit="character",formula="list"))
-setClass("BAMAsummary", 
+setClass("bsum", 
 		contains="ExpressionSet", 
 		representation(unit="character",formula="formula", fit="data.frame"))
 

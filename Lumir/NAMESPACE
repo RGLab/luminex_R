@@ -1,4 +1,4 @@
-#BAMAR NAMESPACE
+#Lumir NAMESPACE
 
 #drc
 importFrom(drc, drm, LL.5)
@@ -41,5 +41,5 @@ scale_x_log10, scale_y_log10)
 ######
 exportMethods("show", "pData", "fData", "exprs", "fit", "melt", "[",
 	"geom_sc")
-exportClasses("BAMAset","BAMAsummary")
+exportClasses("blum","bsum")
 export("read.experiment", "BAMAsummarize")
