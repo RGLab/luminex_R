@@ -191,7 +191,7 @@ read.experiment<-function(path="./"){
 }
 
 ### Summarize to MFIs and add standardCurves informations
-BAMAsummarize<-function(from,type="MFI"){
+bSummarize<-function(from,type="MFI"){
   mat<-lapply(exprs(from),sapply,median)
   mat<-t(do.call("rbind",mat))
   mfiSet<-new("bsum", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
@@ -231,6 +231,5 @@ BAMAsummarize<-function(from,type="MFI"){
   sortCoeffs<-do.call("rbind", lapply(coeffs[df$analyte], t))
   colnames(sortCoeffs)<-c('b','c','d','e','f')
   df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, sortCoeffs)
-  print(nCtrl)
   return(df2)
 }

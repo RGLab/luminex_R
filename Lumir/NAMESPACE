@@ -40,6 +40,6 @@ scale_x_log10, scale_y_log10)
 ######
 ######
 exportMethods("show", "pData", "fData", "exprs", "fit", "melt", "[",
-	"geom_sc")
+	"geom_sc", "plot_layout")
 exportClasses("blum","bsum")
-export("read.experiment", "BAMAsummarize")
+export("read.experiment", "bSummarize")

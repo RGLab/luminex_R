@@ -156,3 +156,30 @@ setMethod("geom_sc", "bsum",
   newdf<-data.frame(plate=rep(df$plate[1],n),analyte=rep(df$analyte[1],n),concentration=x,mfi=mfi)
  return(newdf)
 }
+
+setGeneric("plot_layout", function(object, plate=NULL, carac="sample_type") standardGeneric("plot_layout"))
+
+setMethod("plot_layout", "bsum", function(object, plate=NULL, carac="sample_type"){
+  plateNames<-levels(pd$plate)
+  if(is.null(plate)){
+    plate<-plateNames[1]
+    warning("Plate name not specified '",plate,"' will be displayed")
+  } else if(!plate%in%plateNames) {
+    stop("'",plate,"' is not a valid plate name. Available plate names for this object are: ",list(plateNames))
+  }
+  pd<-pData(object)[pData(object)$plate==plate,]
+  df<-data.frame(well2coords(pd$well), pd[[carac]])
+  colnames(df)[3]<-carac
+  df<-cbind(df, x=rep(1, nrow(df)), y=rep(1, nrow(df)))
+  p<-ggplot(df, aes(x, y))+geom_point(aes_string(color=carac), size=10)
+  p<-p+labs(colour=carac, title=plate)+theme(line=element_blank(), axis.text=element_blank(), axis.title=element_blank())+facet_grid(row~col)
+  return(p)
+})
+
+well2coords<-function(well_id){
+  row<-substr(well_id, 1,1)
+  col<-as.numeric(substr(well_id, 2,3))
+  return(list(row=row, col=col))
+}
+
+

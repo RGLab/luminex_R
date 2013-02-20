@@ -1,7 +1,7 @@
 Package: Lumir
 Type: Package
-Title: AUtomatic Bead Array Multiplex Assay
-Version: 0.1.0
+Title: Luminex multiplex array manipulation and analysis
+Version: 0.1.1
 Author: Renan Saueraud <rsautera@fhcrc.org>
 Maintainer: Renan Sauteraud <rsautera@fhcrc.org>
 Depends: R(>= 2.15.0), Biobase
