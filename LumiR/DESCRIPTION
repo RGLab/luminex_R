@@ -1,4 +1,4 @@
-Package: Lumir
+Package: LumiR
 Type: Package
 Title: Luminex multiplex array manipulation and analysis
 Version: 0.1.1
@@ -8,6 +8,6 @@ Depends: R(>= 2.15.0), Biobase
 Imports: flowCore, XML, gdata, tools, reshape2, ggplot2, drc, stats, multcomp
 Suggests:
 Description: Provides S4 structures and functions to deal with Luminex Bead Array Multiplex Assay data
-biocViews: Peptide Microarray
+biocViews:
 License: Artistic-2.0
 Packaged:

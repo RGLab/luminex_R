@@ -107,6 +107,7 @@ read.experiment<-function(path="./"){
     beadList<-split(con[,"RP1"],con[,2]);
     beadList<-beadList[order(names(beadList))]
     return(beadList);})
+    filenames<-unlist(lapply(filenames, function(x)paste(tail(strsplit(x,"/")[[1]],2), collapse="/")))
     names(exprsList)<-filenames
   return(exprsList)
 }
@@ -194,7 +195,8 @@ read.experiment<-function(path="./"){
 bSummarize<-function(from,type="MFI"){
   mat<-lapply(exprs(from),sapply,median)
   mat<-t(do.call("rbind",mat))
-  mfiSet<-new("bsum", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"))
+  mfiSet<-new("bsum", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"), inv=function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
+  )
   exprs(mfiSet)<-mat
   pData(mfiSet)<-pData(from)
   fData(mfiSet)<-fData(from)
@@ -205,15 +207,14 @@ bSummarize<-function(from,type="MFI"){
   df<-subset(df, concentration!=0 & tolower(sample_type)=="standard")		  
   # Split by plate
   sdf<-split(df,df$plate)
-  df2<-lapply(sdf,.fit_sc)
+  df2<-lapply(sdf,.fit_sc, mfiSet@inv)
   df2<-do.call("rbind",df2)
   mfiSet@fit<-df2
   mfiSet
 }	  
 
-.fit_sc<-function(df)
+.fit_sc<-function(df, inv)
 {
-  inv<-function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
   
   nCtrl<-length(unique(df$well)) #number of wells with standards
   df.split<-split(df, df$analyte)
@@ -233,3 +234,33 @@ bSummarize<-function(from,type="MFI"){
   df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, sortCoeffs)
   return(df2)
 }
+
+
+
+results.conc.CSV<-function(object, file="./concentrations.csv"){
+  mbs<-melt(object)
+  concentration<-c()
+  for(i in 1:nrow(mbs)){
+    coefs<-getCoeffs(bs, mbs[i,"plate"], mbs[i, "analyte"])
+    concentration<-c(concentration,as.numeric(inv(mbs[i, "mfi"], coefs)))
+  }
+  toWrite<-cbind(mbs[,c("plate", "well", "analyte", "mfi")], concentration)
+  write.csv(toWrite, file=file, row.names=FALSE)
+  
+  return(invisible(toWrite))
+}
+
+results.curves.CSV<-function(object, file="./curves.csv"){
+  bsfo<-bs@formula[3]
+  fList<-c()
+  bsfi<-unique(object@fit[,c("plate", "analyte", "b","c","d","e","f")])
+  bsfi[,3:7]<-round(bsfi[,3:7], 4)
+  for(i in 1:nrow(bsfi)){
+    fList<-c(fList,gsub("c",bsfi[i,"c"],gsub("d",bsfi[i,"d"],gsub("e",bsfi[i,"e"],gsub("f",bsfi[i,"f"],bsfo)))))
+  }
+  toWrite<-cbind(sbs[,c("plate", "analyte")], Formula=fList)
+  write.csv(toWrite, file=file, row.names=FALSE)
+  return(invisible(toWrite))
+}
+  
+

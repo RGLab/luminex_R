@@ -12,6 +12,13 @@ df.mfi<-melt(bama.mfi)
 df.mfi.subset<-subset(df.mfi,tolower(sample_type)=="standard")
 ggplot(df.mfi.subset)+geom_point(aes(x=concentration,y=mfi,color=plate),alpha=.5)+scale_x_log10()+scale_y_log10()+geom_sc(object=bama.mfi,n=10,mapping=aes(x=concentration,y=mfi,color=plate))+facet_wrap(~analyte)+theme_bw()
 
+df.mfi<-melt(bs)
+df.mfi.subset<-subset(df.mfi,tolower(sample_type)=="standard")
+ggplot(df.mfi.subset)+geom_point(aes(x=concentration,y=mfi,color=plate),alpha=.5)+scale_x_log10()+scale_y_log10()+geom_sc(object=bs,n=10,mapping=aes(x=concentration,y=mfi,color=plate))+facet_wrap(~analyte)+theme_bw()
+
+
+
+
 k<-"TNF.A"
 beads<-k
 mSB<-sdSB<-list()

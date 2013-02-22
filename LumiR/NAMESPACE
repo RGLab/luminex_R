@@ -1,5 +1,3 @@
-#Lumir NAMESPACE
-
 #drc
 importFrom(drc, drm, LL.5)
 
@@ -31,8 +29,8 @@ importMethodsFrom(Biobase,pData,featureData,fData,"exprs<-")
 # Melt is an S3 method
 
 #ggplot2
-importFrom(ggplot2, ggplot, geom_point, geom_line, aes, facet_wrap, theme_bw, 
-scale_x_log10, scale_y_log10)
+importFrom(ggplot2, ggplot, geom_point, geom_line, aes, aes_string, facet_wrap, facet_grid, 
+labs, element_blank, theme, theme_bw, scale_x_log10, scale_y_log10)
 
 
 
@@ -42,4 +40,4 @@ scale_x_log10, scale_y_log10)
 exportMethods("show", "pData", "fData", "exprs", "fit", "melt", "[",
 	"geom_sc", "plot_layout")
 exportClasses("blum","bsum")
-export("read.experiment", "bSummarize")
+export("read.experiment", "bSummarize", "results.conc.CSV", "results.curves.CSV")

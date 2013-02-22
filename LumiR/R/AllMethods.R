@@ -8,8 +8,6 @@ setMethod("show", "blum", function(object){
   cat("And slots:", names(getSlots("blum")),"\n")
 })
 
-#TODO: Add setters
-
 # pData method:
 #   phenoData accessor
 setMethod("pData", "blum", function(object){
@@ -70,10 +68,14 @@ function(x)
   # Use the melt function in reshape2
   # This generates a dataframe analyte, sample, RP1
   df<-reshape2::melt(exprs(x))
-  names(df)<-c("RP1","analyte","filename")
+  names(df)<-c("RP1","bid","filename")
+  fileId<-lapply(strsplit(as.character(df[,3]), split="/"), tail, 2)
+  plate<-sapply(fileId, "[[", 1)
+  filename<-sapply(fileId, "[[", 2)
+  df<-cbind(df[,1:2],plate, filename)
 
-  df<-merge(df,pData(x),by="filename")
-  df<-merge(df,fData(x),by="analyte")
+  df<-merge(df,pData(x),by=c("filename", "plate"))
+  df<-merge(df,fData(x),by="bid")
   return(df)
   
 })
@@ -89,17 +91,6 @@ setMethod("melt","bsum",
             plate<-sapply(fileId, "[[", 1)
             filename<-sapply(fileId, "[[", 2)
             df<-cbind(df[,c(1,3)],plate, filename)
-            #l.sample<-ncol(x)
-            #l.analyte<-nrow(x)
-            
-            
-#             pd.long<-apply(pData(x),1,rep,l.analyte)
-#             pd.long<-lapply(1:l.sample,function(i,x,length)sapply(x[i,],rep,length),length=l.analyte,x=pData(x))
-#             pd.long<-as.data.frame(do.call("rbind",pd.long))
-#             
-#             # Combine data and metadata
-#             df<-cbind(df,pd.long)  
-#            
             ## merge all information
             df<-merge(df,pData(x),by=c("filename", "plate"))
             df<-merge(df,fData(x),by="bid")
@@ -118,12 +109,12 @@ setGeneric("formula<-", function(object, value, ...) standardGeneric("formula<-"
 setReplaceMethod("formula", "bsum", function(object, value){object@formula<-value; object})
 
 
-setGeneric("geom_sc", function(object, n=100, data = NULL, 
+setGeneric("geom_sc", function(object, n=100, data = NULL, mapping = aes(x=concentration, y=mfi),
 				stat = "identity", position = "identity", 
 				na.rm = FALSE, ...) standardGeneric("geom_sc"))
 
 setMethod("geom_sc", "bsum",
-          function(object, n=100, mapping = NULL,
+          function(object, n=100, mapping = aes(x=concentration, y=mfi),
                    stat = "identity", position = "identity", 
                    na.rm = FALSE, ...)
           {            
@@ -159,7 +150,8 @@ setMethod("geom_sc", "bsum",
 
 setGeneric("plot_layout", function(object, plate=NULL, carac="sample_type") standardGeneric("plot_layout"))
 
-setMethod("plot_layout", "bsum", function(object, plate=NULL, carac="sample_type"){
+setMethod("plot_layout", "blumORbsum", function(object, plate=NULL, carac="sample_type"){
+  pd<-pData(object)
   plateNames<-levels(pd$plate)
   if(is.null(plate)){
     plate<-plateNames[1]
@@ -167,7 +159,7 @@ setMethod("plot_layout", "bsum", function(object, plate=NULL, carac="sample_type
   } else if(!plate%in%plateNames) {
     stop("'",plate,"' is not a valid plate name. Available plate names for this object are: ",list(plateNames))
   }
-  pd<-pData(object)[pData(object)$plate==plate,]
+  pd<-pd[pd$plate==plate,]
   df<-data.frame(well2coords(pd$well), pd[[carac]])
   colnames(df)[3]<-carac
   df<-cbind(df, x=rep(1, nrow(df)), y=rep(1, nrow(df)))
@@ -182,4 +174,18 @@ well2coords<-function(well_id){
   return(list(row=row, col=col))
 }
 
+setGeneric("getCoeffs", function(object, plate=NULL, analyte=NULL) standardGeneric("getCoeffs"))
+
+setMethod("getCoeffs", "bsum", function(object, plate=NULL, analyte=NULL){
+  if(is.null(plate) | is.null(analyte)){
+    stop("Missing argument  'plate' or 'analyte'")
+  }
+  df<-unique(object@fit[,c("plate","analyte","b","c","d","e","f")])
+  df<-df[df$plate==plate & df$analyte==analyte, c("b","c","d","e","f")]
+  if(nrow(df)==0){
+    stop("No match found for the given 'plate' or 'analyte'.")
+  }
+  return(df)
+  #return(as.numeric(df))
+})
 
