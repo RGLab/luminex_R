@@ -5,18 +5,17 @@ library(Biobase)
 library(ggplot2)
 path<-"~/workspace/sexyTest/exp/"
 
-bama<-read.luminex(path)
-bama.mfi<-BAMAsummarize(bama)
-
 
 df.mfi<-melt(sl)
 df.mfi.subset<-subset(df.mfi,tolower(sample_type)=="standard")
 ggplot(df.mfi.subset)+geom_point(aes(x=concentration,y=mfi,color=plate),alpha=.5)+scale_x_log10()+scale_y_log10()+geom_sc(object=sl)+facet_wrap(~analyte)+theme_bw()
 
-
+bl<-read.experiment(pathcsv)
 sl<-slummarize(bl)
 msl<-melt(sl)
 ggplot2::ggplot(msl, ggplot2::aes(color=plate), alpha=0.5)+ggplot2::scale_x_log10()+ggplot2::scale_y_log10()+ggplot2::facet_wrap(~analyte)+geom_sc(sl)    +ggplot2::geom_point(ggplot2::aes(x=concentration, y=mfi))
+
+plot_layout(sl, plate_name="plate2", fill="sample_type")
 
 
 

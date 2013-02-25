@@ -27,10 +27,15 @@ setMethod("exprs", "blum", function(object){
   return(object@exprs)
 })
 
+
 # fit accessor for standard curve fitting information
 setGeneric("fit", function(object, ...) standardGeneric("fit"))
 setMethod("fit", "slum",function(object){
   return(object@fit)
+})
+setGeneric("concentration" ,function(object,...) standardGeneric("concentration"))
+setMethod("concentration", "slum", function(object){
+  return(assayData(object)$concentration)
 })
 
 # Subset method to subset a la eSet
@@ -150,23 +155,33 @@ setMethod("geom_sc", "slum",
  return(newdf)
 }
 
-setGeneric("plot_layout", function(object, plate=NULL, carac="sample_type") standardGeneric("plot_layout"))
+setGeneric("plot_layout", function(object, plate_name=NULL,... ) standardGeneric("plot_layout"))
 
-setMethod("plot_layout", "blumORslum", function(object, plate=NULL, carac="sample_type"){
+setMethod("plot_layout", "blumORslum", function(object, plate_name=NULL, ...){
   pd<-pData(object)
   plateNames<-levels(pd$plate)
-  if(is.null(plate)){
-    plate<-plateNames[1]
-    warning("Plate name not specified '",plate,"' will be displayed")
-  } else if(!plate%in%plateNames) {
-    stop("'",plate,"' is not a valid plate name. Available plate names for this object are: ",list(plateNames))
+  if(is.null(plate_name)){
+    plate_name<-levels(pd$plate)[1]
+    warning("Plate name not specified '",plate_name,"' will be displayed")
+  } else if(!plate_name%in%plateNames) {
+    stop("'",plate_name,"' is not a valid plate name. Available plate names for this object are: ",paste(plateNames, collapse=", "))
   }
-  pd<-pd[pd$plate==plate,]
-  df<-data.frame(well2coords(pd$well), pd[[carac]])
-  colnames(df)[3]<-carac
+  pd<-subset(pd,plate==plate_name)
+  df<-data.frame(well2coords(pd$well), pd)
   df<-cbind(df, x=rep(1, nrow(df)), y=rep(1, nrow(df)))
-  p<-ggplot(df, aes(x, y))+geom_point(aes_string(color=carac), size=10)
-  p<-p+labs(colour=carac, title=plate)+theme(line=element_blank(), axis.text=element_blank(), axis.title=element_blank())+facet_grid(row~col)
+  
+  df2<-lapply(df$well,function(well){
+    angle <- seq(-pi, pi, length = 50);
+    xx = sin(angle); yy = cos(angle);
+    data.frame(well,xx,yy)
+    })
+  df2<-do.call("rbind",df2)
+  
+  df.combine<-merge(df,df2,by="well")
+  p<-ggplot(df.combine, aes(x, y)) + 
+    geom_polygon(mapping=aes_string(x="xx", y="yy", ...),data=df.combine)
+  # geom_point(aes(x=x,y=y, color=sample_type))+theme_bw()
+  p<-p+labs(title=plate_name)+theme(line=element_blank(), axis.text=element_blank(), axis.title=element_blank(), panel.margin = unit(0, "lines"))+facet_grid(row~col)
   return(p)
 })
 

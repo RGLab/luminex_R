@@ -130,7 +130,6 @@ read.experiment<-function(path="./"){
   }
   return(exprsList)
 }
-
 .read.exprs.bioplex<-function(filenames){
   exprs<-list()
   for(filename in filenames){
@@ -175,6 +174,7 @@ read.experiment<-function(path="./"){
   if(length(unique(df$well))!=nrow(df)){#wells are unique
     stop("The layout file should contain only one line per well")
   }
+  ##TODO: bkg=0 should be okay
   if(nrow(df[df$sample_type!="standard" & !is.na(df$concentration),])){#conc only set for standards
     stop("The 'concentration' in layout mapping file should only be set for standard wells\n Check wells: ",paste(as.character(df[df$sample_type!="standard" & !is.na(df$concentration),"well"]), collapse=","))
   }
@@ -232,15 +232,21 @@ slummarize<-function(from,type="MFI"){
   df2<-lapply(sdf,.fit_sc, mfiSet@inv)
   df2<-do.call("rbind",df2)
   mfiSet@fit<-df2
-  mfiSet
-}
 
-#make conc matrix
-buildConcMatrix<-(mat, fit){
-  #for each col (plate/filename)
-  #for each row (analyte)
-  #get plate - analyte
-  
+  pNames<-unlist(lapply(strsplit(colnames(mat), split="/"), "[[", 1))
+  aNames<-fData(mfiSet)$analyte[match(rownames(mat), fData(mfiSet)$bid)]
+  conc<-c()
+  coefs<-unique(mfiSet@fit[,c("plate", "analyte", "b","c","d","e","f")])
+  inv<-mfiSet@inv
+  for(i in 1:nrow(mat)){
+    for(j in 1:ncol(mat)){
+      conc<-c(conc, mfiSet@inv(mat[[i,j]], as.numeric(coefs[coefs$analyte==aNames[i] & coefs$plate==pNames[j],3:7])))
+    }
+  }
+  concMat<-t(matrix(conc, ncol=ncol(mat)))
+  assayData(mfiSet)<-list(exprs=mat, concentration=concMat)
+  #mfiSet@assayData$concentration<-concMat
+  mfiSet
 }
 	  
 
@@ -265,8 +271,6 @@ buildConcMatrix<-(mat, fit){
   df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, sortCoeffs)
   return(df2)
 }
-
-
 
 results.conc.CSV<-function(object, file="./concentrations.csv"){
   mbs<-melt(object)
