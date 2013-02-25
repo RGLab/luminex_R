@@ -39,5 +39,9 @@ labs, element_blank, theme, theme_bw, scale_x_log10, scale_y_log10)
 ######
 exportMethods("show", "pData", "fData", "exprs", "fit", "melt", "[",
 	"geom_sc", "plot_layout")
-exportClasses("blum","bsum")
-export("read.experiment", "bSummarize", "results.conc.CSV", "results.curves.CSV")
+exportClasses("blum","slum")
+export("read.experiment", "slummarize", "results.conc.CSV", "results.curves.CSV")
+
+
+#dev export
+exportPattern("^.")

@@ -1,6 +1,7 @@
 #The root of the experiment
 read.experiment<-function(path="./"){
   analyte.file<-list.files(path,pattern="analyte",full.names=TRUE)
+  layout.file<-list.files(path,pattern="layout",full.names=TRUE)
   pheno.file<-list.files(path,pattern="phenotype",full.names=TRUE)
   plates<-list.dirs(path, recursive=FALSE)
 
@@ -44,6 +45,11 @@ read.experiment<-function(path="./"){
     phenoData<-.read.pheno.xPonent(path=path, pheno.file=pheno.file)
   }
 
+  if(length(layout.file)>0){
+    layout<-.read.layout(layout.file)
+    pData(phenoData)<-merge(pData(phenoData), layout, by="well")
+  }
+
   #exprs
   if(type=="XPONENT"){exprs<-.read.exprs.xPonent(all.files)
   } else if(type=="LXB"){ exprs<-.read.exprs.lxb(all.files)
@@ -62,13 +68,14 @@ read.experiment<-function(path="./"){
       featureData<-as(data.frame(analyte=analyte, bid=bid), 'AnnotatedDataFrame')
     }
   } else { #checks: bid in mapping not in data and vice versa
-    featureData<-.read.analyte.xPonent(analyte.file)
+    featureData<-.read.analyte(analyte.file)
   }
   beadInExprs<-unique(unlist(lapply(exprs, names)))
   notMappedBid<-beadInExprs[!beadInExprs%in%pData(featureData)$bid]
   if(length(notMappedBid>0)){
-    cat(length(notMappedBid),"of the beads found in the data are not found in the mapping file:", notMappedBid,"\n")
-    pData(featureData)<-rbind(pData(featureData), data.frame(analyte=paste("unknown", notMappedBid, sep=""), bid=notMappedBid))
+    cat("Removing",length(notMappedBid),"of the beads found in the data that are not found in the mapping file:", notMappedBid,"\n")
+    exprs<-lapply(exprs, function(x){x[names(x)%in%pData(featureData)$bid]}) #remove non mapped beads (0=outliers)
+    #pData(featureData)<-rbind(pData(featureData), data.frame(analyte=paste("unknown", notMappedBid, sep=""), bid=notMappedBid))
   }
 
   blum<-new("blum", phenoData=phenoData, featureData=featureData, exprs=exprs)
@@ -148,7 +155,7 @@ read.experiment<-function(path="./"){
   
   
 
-.read.analyte.xPonent<-function(analyte.file){
+.read.analyte<-function(analyte.file){
   df<-read.csv(analyte.file, header=TRUE)
   colnames(df)<-tolower(colnames(df))
   if(length(df)!=2 | !all(colnames(df)%in%c("analyte","bid"))) {
@@ -159,10 +166,25 @@ read.experiment<-function(path="./"){
   return(featureData)
 }
 
+.read.layout<-function(layout.file){
+  df<-read.csv(layout.file, header=TRUE)
+  colnames(df)<-tolower(colnames(df))
+  if(!all(colnames(df)%in%c("well", "sample_type", "concentration"))){#required cols
+    stop("The layout mapping file should be a csv file with three columns 'well', 'sample_type' and 'concentration'\n")
+  }
+  if(length(unique(df$well))!=nrow(df)){#wells are unique
+    stop("The layout file should contain only one line per well")
+  }
+  if(nrow(df[df$sample_type!="standard" & !is.na(df$concentration),])){#conc only set for standards
+    stop("The 'concentration' in layout mapping file should only be set for standard wells\n Check wells: ",paste(as.character(df[df$sample_type!="standard" & !is.na(df$concentration),"well"]), collapse=","))
+  }
+  return(df)
+}
+
 .read.pheno.xPonent<-function(path, pheno.file){
   df <-read.csv(pheno.file, colClasses="factor")
   colnames(df)<-tolower(colnames(df))
-  df$concentration<-as.numeric(levels(df$concentration))[df$concentration] #More efficient than fact->char->numeric
+  #df$concentration<-as.numeric(levels(df$concentration))[df$concentration] #More efficient than fact->char->numeric
   if(!all(c("plate","filename","well")%in%colnames(df))){
     stop("The phenotype mapping file must at least have the 'plate', 'filename' and 'well' columns\n")
   }
@@ -192,10 +214,10 @@ read.experiment<-function(path="./"){
 }
 
 ### Summarize to MFIs and add standardCurves informations
-bSummarize<-function(from,type="MFI"){
+slummarize<-function(from,type="MFI"){
   mat<-lapply(exprs(from),sapply,median)
   mat<-t(do.call("rbind",mat))
-  mfiSet<-new("bsum", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"), inv=function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
+  mfiSet<-new("slum", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"), inv=function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
   )
   exprs(mfiSet)<-mat
   pData(mfiSet)<-pData(from)
@@ -211,7 +233,16 @@ bSummarize<-function(from,type="MFI"){
   df2<-do.call("rbind",df2)
   mfiSet@fit<-df2
   mfiSet
-}	  
+}
+
+#make conc matrix
+buildConcMatrix<-(mat, fit){
+  #for each col (plate/filename)
+  #for each row (analyte)
+  #get plate - analyte
+  
+}
+	  
 
 .fit_sc<-function(df, inv)
 {
@@ -262,5 +293,3 @@ results.curves.CSV<-function(object, file="./curves.csv"){
   write.csv(toWrite, file=file, row.names=FALSE)
   return(invisible(toWrite))
 }
-  
-

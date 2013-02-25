@@ -10,8 +10,8 @@ setClass("blum",
            exprs="list")
          )
 
-setClass("bsum", 
+setClass("slum", 
   contains="ExpressionSet", 
   representation(unit="character", formula="formula", inv="function", fit="data.frame"))
 
-setClassUnion("blumORbsum", members=c("blum", "bsum"))
+setClassUnion("blumORslum", members=c("blum", "slum"))

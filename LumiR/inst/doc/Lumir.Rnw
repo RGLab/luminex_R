@@ -65,6 +65,10 @@ The minimum requirements for the mapping file are the three columns \textbf{plat
 It is recommended to include the following columns:\\
 A \textbf{group_name} and a \textbf{sample_type} (standard, case or control) as well as complementary details like the standards expected \textbf{concentration}, or the case's matching \textbf{control_idx}.
 
+3eme essai:
+The minimum requirements for the mapping file are the three columns \textbf{plate}, \textbf{well} and \textbf{sample_ID}. If no file is provided, the reading function will try to guess these informations based on the structure of the experiment folder. Additional information regarding the phenotype can be passed in the form of additional columns and should be provided in order to run any analysis such as standard curve fitting.
+
+
 
 Additional optional info but if not provided, no analysis can be done.
 If nothing is provided, we can still guess
@@ -90,19 +94,19 @@ The reading function \texttt{read.experiment} only argument path takes the pathn
 %blum<-read.experiment(path=path)
 %@
 
-\subsection{bsum}
-\texttt{bSummarize} is used to create a \texttt{bsum}. It calculates the MFI associated with each analyte in each well and uses the given formula to fit the standard curves based on the standard wells.
-%<<bSummarize>>=
-%bsum<-bSummarize(blum)
+\subsection{slum}
+\texttt{slummarize} is used to create a \texttt{slum}. It calculates the MFI associated with each analyte in each well and uses the given formula to fit the standard curves based on the standard wells.
+%<<slummarize>>=
+%slum<-slummarize(blum)
 %@
 
 \section{Setters}
-At some points (either setter on blum/bsum and/or ags in bSummarize) the user will have to add the potentialy missing phenotype information.
+At some points (either setter on blum/slum and/or ags in slummarize) the user will have to add the potentialy missing phenotype information.
 
 \section{Plate layout}
-The function \texttt{plot_layout} makes use of the package \texttt{ggplot2} to display a representation of a plate stored in a \texttt{blum} or \texttt{bsum} object.
+The function \texttt{plot_layout} makes use of the package \texttt{ggplot2} to display a representation of a plate stored in a \texttt{blum} or \texttt{slum} object.
 %<<plotlayout>>=
-%plot_layout(bsum, plate="plate1", carac="sample_type")
+%plot_layout(slum, plate="plate1", carac="sample_type")
 %@
 
 
@@ -111,7 +115,7 @@ One of the most common tools for analysis of xMAP data is the Standard Curve. Wh
 
 \texttt{geom_sc} is a method that extends \texttt{ggplot2}'s \texttt{geom_line} method. Therefore, it should be added 
 %<<geomSc>>=
-%p<-ggplot(bsum)+geom_point(aes(x=concentration,y=mfi,color=plate),alpha=.5)
+%p<-ggplot(slum)+geom_point(aes(x=concentration,y=mfi,color=plate),alpha=.5)
 %p<-p+scale_x_log10()+scale_y_log10()+theme_bw()
 %p+geom_sc(object=bama.mfi,n=10,mapping=aes(x=concentration,y=mfi,color=plate))+facet_wrap(~analyte)
 %@

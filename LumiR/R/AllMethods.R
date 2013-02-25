@@ -13,12 +13,14 @@ setMethod("show", "blum", function(object){
 setMethod("pData", "blum", function(object){
   return(pData(object@phenoData))
 })
+setReplaceMethod("pData", "blum", function(object, value){object@phenoData@data<-value})
 
 
 ## contains information about analytes
 setMethod("fData", "blum", function(object){
   return(pData(object@featureData))
 })
+setReplaceMethod("fData", "blum", function(object, value){object@featureData@data<-value})
 
 # exprs accessor for bead level data a la eSet
 setMethod("exprs", "blum", function(object){
@@ -27,7 +29,7 @@ setMethod("exprs", "blum", function(object){
 
 # fit accessor for standard curve fitting information
 setGeneric("fit", function(object, ...) standardGeneric("fit"))
-setMethod("fit", "bsum",function(object){
+setMethod("fit", "slum",function(object){
   return(object@fit)
 })
 
@@ -80,7 +82,7 @@ function(x)
   
 })
 
-setMethod("melt","bsum",
+setMethod("melt","slum",
           function(x)
           {
             # Use the melt function in reshape2
@@ -101,19 +103,19 @@ setMethod("melt","bsum",
 # formula
 # getter
 #setGeneric("formula", function(object, ...) standardGeneric("formula"))
-#setMethod("formula", "bsum", function(object){return(object@formula)})
+#setMethod("formula", "slum", function(object){return(object@formula)})
 #--------
 # formula<-
 # setter
 setGeneric("formula<-", function(object, value, ...) standardGeneric("formula<-"))
-setReplaceMethod("formula", "bsum", function(object, value){object@formula<-value; object})
+setReplaceMethod("formula", "slum", function(object, value){object@formula<-value; object})
 
 
 setGeneric("geom_sc", function(object, n=100, data = NULL, mapping = aes(x=concentration, y=mfi),
 				stat = "identity", position = "identity", 
 				na.rm = FALSE, ...) standardGeneric("geom_sc"))
 
-setMethod("geom_sc", "bsum",
+setMethod("geom_sc", "slum",
           function(object, n=100, mapping = aes(x=concentration, y=mfi),
                    stat = "identity", position = "identity", 
                    na.rm = FALSE, ...)
@@ -150,7 +152,7 @@ setMethod("geom_sc", "bsum",
 
 setGeneric("plot_layout", function(object, plate=NULL, carac="sample_type") standardGeneric("plot_layout"))
 
-setMethod("plot_layout", "blumORbsum", function(object, plate=NULL, carac="sample_type"){
+setMethod("plot_layout", "blumORslum", function(object, plate=NULL, carac="sample_type"){
   pd<-pData(object)
   plateNames<-levels(pd$plate)
   if(is.null(plate)){
@@ -176,7 +178,7 @@ well2coords<-function(well_id){
 
 setGeneric("getCoeffs", function(object, plate=NULL, analyte=NULL) standardGeneric("getCoeffs"))
 
-setMethod("getCoeffs", "bsum", function(object, plate=NULL, analyte=NULL){
+setMethod("getCoeffs", "slum", function(object, plate=NULL, analyte=NULL){
   if(is.null(plate) | is.null(analyte)){
     stop("Missing argument  'plate' or 'analyte'")
   }
