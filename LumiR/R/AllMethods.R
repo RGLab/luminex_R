@@ -148,23 +148,32 @@ setMethod("geom_sc", "bsum",
  return(newdf)
 }
 
-setGeneric("plot_layout", function(object, plate=NULL, carac="sample_type") standardGeneric("plot_layout"))
+setGeneric("plot_layout", function(object, plate_name=NULL,... ) standardGeneric("plot_layout"))
 
-setMethod("plot_layout", "blumORbsum", function(object, plate=NULL, carac="sample_type"){
+setMethod("plot_layout", "blumORbsum", function(object, plate_name=NULL,... ){
   pd<-pData(object)
-  plateNames<-levels(pd$plate)
-  if(is.null(plate)){
-    plate<-plateNames[1]
+  if(is.null(plate_name)){
+    plate_name<-levels(pd$plate)[1]
     warning("Plate name not specified '",plate,"' will be displayed")
   } else if(!plate%in%plateNames) {
     stop("'",plate,"' is not a valid plate name. Available plate names for this object are: ",list(plateNames))
   }
-  pd<-pd[pd$plate==plate,]
-  df<-data.frame(well2coords(pd$well), pd[[carac]])
-  colnames(df)[3]<-carac
+  pd<-subset(pd,plate==plate_name)
+  df<-data.frame(well2coords(pd$well), pd)
   df<-cbind(df, x=rep(1, nrow(df)), y=rep(1, nrow(df)))
-  p<-ggplot(df, aes(x, y))+geom_point(aes_string(color=carac), size=10)
-  p<-p+labs(colour=carac, title=plate)+theme(line=element_blank(), axis.text=element_blank(), axis.title=element_blank())+facet_grid(row~col)
+  
+  df2<-lapply(df$well,function(well){
+    angle <- seq(-pi, pi, length = 50);
+    xx = sin(angle); yy = cos(angle);
+    data.frame(well,xx,yy)
+    })
+  df2<-do.call("rbind",df2)
+  
+  df.combine<-merge(df,df2,by="well")
+  p<-ggplot(df.combine, aes(x, y)) + 
+    geom_polygon(mapping=aes_string(x="xx", y="yy", ...),data=df.combine)
+  # geom_point(aes(x=x,y=y, color=sample_type))+theme_bw()
+  p<-p+labs(title=plate_name)+theme(line=element_blank(), axis.text=element_blank(), axis.title=element_blank(), panel.margin = unit(0, "lines"))+facet_grid(row~col)
   return(p)
 })
 

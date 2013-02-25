@@ -123,7 +123,6 @@ read.experiment<-function(path="./"){
   }
   return(exprsList)
 }
-
 .read.exprs.bioplex<-function(filenames){
   exprs<-list()
   for(filename in filenames){
@@ -235,8 +234,6 @@ bSummarize<-function(from,type="MFI"){
   return(df2)
 }
 
-
-
 results.conc.CSV<-function(object, file="./concentrations.csv"){
   mbs<-melt(object)
   concentration<-c()
@@ -262,5 +259,4 @@ results.curves.CSV<-function(object, file="./curves.csv"){
   write.csv(toWrite, file=file, row.names=FALSE)
   return(invisible(toWrite))
 }
-  
 
