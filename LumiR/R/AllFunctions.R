@@ -42,7 +42,7 @@ read.experiment<-function(path="./"){
     phenoData<-data.frame(plate=plate,filename=fNames,well=wells)
     phenoData<-as(phenoData,'AnnotatedDataFrame')
   } else {
-    phenoData<-.read.pheno.xPonent(path=path, pheno.file=pheno.file)
+    phenoData<-.read.phenotype(path=path, pheno.file=pheno.file)
   }
 
   if(length(layout.file)>0){
@@ -185,7 +185,7 @@ read.experiment<-function(path="./"){
   return(df)
 }
 
-.read.pheno.xPonent<-function(path, pheno.file){
+.read.phenotype<-function(path, pheno.file){
   df <-read.csv(pheno.file, colClasses="factor")
   colnames(df)<-tolower(colnames(df))
   #df$concentration<-as.numeric(levels(df$concentration))[df$concentration] #More efficient than fact->char->numeric
@@ -249,7 +249,6 @@ slummarize<-function(from,type="MFI"){
   }
   concMat<-t(matrix(conc, ncol=ncol(mat)))
   assayData(mfiSet)<-list(exprs=mat, concentration=concMat)
-  #mfiSet@assayData$concentration<-concMat
   mfiSet
 }
 	  
@@ -324,7 +323,7 @@ setup.templates<-function(path, templates=c("layout", "analyte", "phenotype")){
     if(length(pheno.file)>0){
       warning("The phenotype mapping file already exists, remove it to setup a template for it")
     } else {
-      if(type=="BIOPLEX"){#The treatment should be different for BIOPLEX as there is only one file
+      if(type=="BIOPLEX"){
         wells<-.getBioplexWellsID(all.files)
         wellsPerFile<-sapply(all.files, function(x){
           xmlSize(xmlRoot(xmlTreeParse(x))[["Wells"]])
@@ -391,19 +390,17 @@ setup.templates<-function(path, templates=c("layout", "analyte", "phenotype")){
 .getXponentBID<-function(firstFile){
   sLine<-grep("[Ee]vent[Nn]o", readLines(firstFile[1], n=5))-1
   con<-read.csv(firstFile, skip=sLine, header=TRUE);
-  BIDs<-sort(unique(con[,2]))
+  BIDs<-sort(as.numeric(unique(con[,2])))
   return(BIDs)
 }
 .getLXBBID<-function(firstFile){
   suppressWarnings(lxb<-read.FCS(firstFile))
-  BIDs<-sort(unique(exprs(lxb)[,1]))
+  BIDs<-sort(as.numeric(unique(exprs(lxb)[,1])))
   return(BIDs)
 }
 .getBioplexBID<-function(firstFile){
   xml<-xmlTreeParse(firstFile)
   root<-xmlRoot(xml)
-  str<-xmlValue(root[["Wells"]][[1]][["BeadEventData"]])
-  ss<-unlist(strsplit(str, split="\n"))
-  BIDs<-sort(unique(sapply(strsplit(ss, split=" "), "[[", 1)))
+  BIDs<-as.numeric(xmlSApply(root[["Wells"]][[1]][["RunSettings"]][["RegionsOfInterest"]], xmlAttrs))
   return(BIDs)
 }
