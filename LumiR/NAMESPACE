@@ -48,4 +48,4 @@ export("read.experiment", "slummarize", "results.conc.CSV", "results.curves.CSV"
 
 
 #dev export
-#exportPattern("^.")
+exportPattern("^.")

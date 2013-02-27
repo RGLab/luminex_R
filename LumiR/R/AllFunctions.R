@@ -175,9 +175,13 @@ read.experiment<-function(path="./"){
     stop("The layout file should contain only one line per well")
   }
   ##TODO: bkg=0 should be okay
-  if(nrow(df[df$sample_type!="standard" & !is.na(df$concentration),])){#conc only set for standards
+  if(nrow(df[df$sample_type!="standard" & df$sample_type!="background" & !is.na(df$concentration),])){#conc only set for standards
     stop("The 'concentration' in layout mapping file should only be set for standard wells\n Check wells: ",paste(as.character(df[df$sample_type!="standard" & !is.na(df$concentration),"well"]), collapse=","))
   }
+  if(nrow(df[df$sample_type=="background" & !(is.na(df$concentration) | df$concentration==0),])){
+    stop("The 'concentration' for background samples in layout mapping file should be set to 0 or NA\n")
+  }
+  
   return(df)
 }
 
@@ -296,4 +300,110 @@ results.curves.CSV<-function(object, file="./curves.csv"){
   toWrite<-cbind(sbs[,c("plate", "analyte")], Formula=fList)
   write.csv(toWrite, file=file, row.names=FALSE)
   return(invisible(toWrite))
+}
+
+setup.templates<-function(path, templates=c("layout", "analyte", "phenotype")){
+  
+  analyte.file<-list.files(path,pattern="analyte",full.names=TRUE)
+  layout.file<-list.files(path,pattern="layout",full.names=TRUE)
+  pheno.file<-list.files(path,pattern="phenotype",full.names=TRUE)
+  plates<-list.dirs(path, recursive=FALSE)
+
+  if(length(list_files_with_exts(plates[1], exts="lxb")>0)){
+    type<-"LXB"; typeExt<-"lxb";
+  } else if(length(list_files_with_exts(plates[1], exts="xml")>0)){
+    type<-"BIOPLEX"; typeExt<-"xml";
+  } else {
+    type<-"XPONENT"; typeExt<-"csv"
+  }
+  
+  all.files<-unlist(lapply(plates,list_files_with_exts,exts=typeExt))  
+
+  #pData
+  if("phenotype"%in%templates){
+    if(length(pheno.file)>0){
+      warning("The phenotype mapping file already exists, remove it to setup a template for it")
+    } else {
+      if(type=="BIOPLEX"){#The treatment should be different for BIOPLEX as there is only one file
+        wells<-.getBioplexWellsID(all.files)
+        wellsPerFile<-sapply(all.files, function(x){
+          xmlSize(xmlRoot(xmlTreeParse(x))[["Wells"]])
+        })
+        fNames<-rep(unlist(lapply(all.files, lapply, function(x)tail(strsplit(x,"/")[[1]],1))), wellsPerFile)
+        plate<-rep(plates, wellsPerFile)
+        plate<-sapply(strsplit(plate, split="/"), tail, 1)
+      } else {
+        len<-lapply(plates, function(x){length(list_files_with_exts(x,exts=typeExt))})
+        fNames<-unlist(lapply(all.files, function(x)tail(strsplit(x,"/")[[1]],1)))
+        plate<-rep(plates, len)
+        plate<-sapply(strsplit(plate, split="/"), tail, 1)
+        if(type=="XPONENT"){
+          wells<-.getXponentWellsID(fNames)
+        } else if(type=="LXB"){
+          wells<-.getLXBWellsID(fNames)
+        } else {
+          wells<-.getBioplexWellsID(fNames)
+        }
+      }
+      noExt<-gsub(paste0(".",typeExt), "", fNames)
+      sample_ID<-paste(noExt, plate, wells, sep="_")
+      phenotype<-data.frame(plate=plate,filename=fNames,well=wells, sample_ID=sample_ID)
+    
+      write.csv(phenotype, file=paste0(path,"phenotype.csv"), row.names=FALSE)
+    }
+  }
+    
+  #layout
+  if("layout"%in%templates){
+    if(length(analyte.file)>0){
+      warning("The layout mapping file already exists, remove it to setup a template for it")
+    } else {
+      wells<-paste0(LETTERS[1:8], rep(seq(1,12), each=8))
+      sample_type<-rep("unknown", length(wells))
+      concentration<-rep(NA, length(wells))
+      layout<-data.frame(well=wells, sample_type=sample_type, concentration=concentration)
+      write.csv(layout, file=paste0(path,"layout.csv"), row.names=FALSE)
+    }
+  }
+
+  #analyte
+  if("analyte"%in%templates){
+    if(length(analyte.file)>0){
+      warning("The analyte mapping file already exists, remove it to setup a template for it")
+    } else {
+      if(type=="LXB" & length(list_files_with_exts(path, exts="lxd")>0)){
+          lxdFile<-list_files_with_exts(path, exts="lxd")
+          write.csv(pData(.read.lxd(lxdFile)), file=paste0(path, "analyte.csv"), row.names=FALSE)
+      } else{
+        if(type=="XPONENT"){  BIDs<-.getXponentBID(all.files[1])
+        } else if(type=="LXB"){ BIDs<-.getLXBBID(all.files[1])
+        } else { BIDs<-.getBioplexBID(all.files[1])
+        }
+        analyte<-paste0(rep("unknown", length(BIDs)), BIDs)
+        write.csv(data.frame(bid=BIDs, analyte=analyte), file=paste0(path,"analyte.csv"), row.names=FALSE)
+      }
+    }
+  }
+}
+
+
+
+.getXponentBID<-function(firstFile){
+  sLine<-grep("[Ee]vent[Nn]o", readLines(firstFile[1], n=5))-1
+  con<-read.csv(firstFile, skip=sLine, header=TRUE);
+  BIDs<-sort(unique(con[,2]))
+  return(BIDs)
+}
+.getLXBBID<-function(firstFile){
+  suppressWarnings(lxb<-read.FCS(firstFile))
+  BIDs<-sort(unique(exprs(lxb)[,1]))
+  return(BIDs)
+}
+.getBioplexBID<-function(firstFile){
+  xml<-xmlTreeParse(firstFile)
+  root<-xmlRoot(xml)
+  str<-xmlValue(root[["Wells"]][[1]][["BeadEventData"]])
+  ss<-unlist(strsplit(str, split="\n"))
+  BIDs<-sort(unique(sapply(strsplit(ss, split=" "), "[[", 1)))
+  return(BIDs)
 }
