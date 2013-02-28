@@ -58,14 +58,8 @@ If this file is not submitted by the user, \texttt{LumiR} will still be able to 
 Alternately, with MasterPlex CT data, the reading function will look for the .lxd file and attempt to extract this information.
 
 \subsection{Phenotype mapping file}
-This user provided file should contain information to match a sample (defined by a `plate', a `filename' and a `well') and its phenotype information, including a `group_name' a `sample_type' (standard, case or control) as well as complementary details like standards `expected_concentration', or cases matching `control_idx'.
-The package can still read the data and format it into a \texttt{blum}. However, this information is critical and the user will be asked to add it prior to any analysis such as standard curve fitting.
-
-The minimum requirements for the mapping file are the three columns \textbf{plate}, \textbf{filename} and \textbf{well}. If no file is provided, the reading function will try to guess these informations based on the structure of the experiment folder. Additional information regarding the phenotype can be passed in the form of additional columns and should be provided in order to run any analysis such as standard curve fitting.
-It is recommended to include the following columns:\\
 A \textbf{group_name} and a \textbf{sample_type} (standard, case or control) as well as complementary details like the standards expected \textbf{concentration}, or the case's matching \textbf{control_idx}.
 
-3eme essai:
 The minimum requirements for the mapping file are the three columns \textbf{plate}, \textbf{well} and \textbf{sample_ID}. If no file is provided, the reading function will try to guess these informations based on the structure of the experiment folder. Additional information regarding the phenotype can be passed in the form of additional columns and should be provided in order to run any analysis such as standard curve fitting.
 
 
@@ -81,6 +75,8 @@ head(analyte)
 phenotype<-read.csv(file.path(path, "phenotype.csv"))
 head(phenotype,2)
 @
+\\\\
+The \texttt{setup_templates} function takes the path of an experiment as an argument. It will create extract information regarding the beads used, the matching of filenames wih well ID and plate from the structure of the experiment folder.
 
 
 \section{Data structure}

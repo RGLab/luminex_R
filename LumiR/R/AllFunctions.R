@@ -289,19 +289,21 @@ results.conc.CSV<-function(object, file="./concentrations.csv"){
 }
 
 results.curves.CSV<-function(object, file="./curves.csv"){
-  bsfo<-bs@formula[3]
+  bsfo<-object@formula[3]
   fList<-c()
   bsfi<-unique(object@fit[,c("plate", "analyte", "b","c","d","e","f")])
   bsfi[,3:7]<-round(bsfi[,3:7], 4)
   for(i in 1:nrow(bsfi)){
     fList<-c(fList,gsub("c",bsfi[i,"c"],gsub("d",bsfi[i,"d"],gsub("e",bsfi[i,"e"],gsub("f",bsfi[i,"f"],bsfo)))))
   }
-  toWrite<-cbind(sbs[,c("plate", "analyte")], Formula=fList)
+  toWrite<-cbind(bsfi[,c("plate", "analyte")], Formula=fList)
+  maxConc<-max(pData(object)$concentration, na.rm=TRUE)
+  minConc<-min(pData(object)[pData(object)$concentration>0,]$concentration, na.rm=TRUE)
   write.csv(toWrite, file=file, row.names=FALSE)
   return(invisible(toWrite))
 }
 
-setup.templates<-function(path, templates=c("layout", "analyte", "phenotype")){
+setup_templates<-function(path, templates=c("layout", "analyte", "phenotype")){
   
   analyte.file<-list.files(path,pattern="analyte",full.names=TRUE)
   layout.file<-list.files(path,pattern="layout",full.names=TRUE)
@@ -378,6 +380,7 @@ setup.templates<-function(path, templates=c("layout", "analyte", "phenotype")){
         } else if(type=="LXB"){ BIDs<-.getLXBBID(all.files[1])
         } else { BIDs<-.getBioplexBID(all.files[1])
         }
+        BIDs<-BIDs[BIDs!=0]
         analyte<-paste0(rep("unknown", length(BIDs)), BIDs)
         write.csv(data.frame(bid=BIDs, analyte=analyte), file=paste0(path,"analyte.csv"), row.names=FALSE)
       }
