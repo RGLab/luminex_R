@@ -68,13 +68,13 @@ Additional optional info but if not provided, no analysis can be done.
 If nothing is provided, we can still guess
 \\\\
 An example of each mapping file is provided in the inst folder.
-<<analyte.mapping.file>>=
-path<-system.file("extdata",package="LumiR")
-analyte<-read.csv(file.path(path, "analyte.csv"))
-head(analyte)
-phenotype<-read.csv(file.path(path, "phenotype.csv"))
-head(phenotype,2)
-@
+%<<analyte.mapping.file>>=
+%path<-system.file("extdata",package="LumiR")
+%analyte<-read.csv(file.path(path, "analyte.csv"))
+%head(analyte)
+%phenotype<-read.csv(file.path(path, "phenotype.csv"))
+%head(phenotype,2)
+%@
 \\\\
 The \texttt{setup_templates} function takes the path of an experiment as an argument. It will create extract information regarding the beads used, the matching of filenames wih well ID and plate from the structure of the experiment folder.
 

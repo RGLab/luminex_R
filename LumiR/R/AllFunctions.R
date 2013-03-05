@@ -279,8 +279,8 @@ results.conc.CSV<-function(object, file="./concentrations.csv"){
   mbs<-melt(object)
   concentration<-c()
   for(i in 1:nrow(mbs)){
-    coefs<-getCoeffs(bs, mbs[i,"plate"], mbs[i, "analyte"])
-    concentration<-c(concentration,as.numeric(inv(mbs[i, "mfi"], coefs)))
+    coefs<-getCoeffs(object, mbs[i,"plate"], mbs[i, "analyte"])
+    concentration<-c(concentration,as.numeric(object@inv(mbs[i, "mfi"], coefs)))
   }
   toWrite<-cbind(mbs[,c("plate", "well", "analyte", "mfi")], concentration)
   write.csv(toWrite, file=file, row.names=FALSE)
@@ -356,7 +356,7 @@ setup_templates<-function(path, templates=c("layout", "analyte", "phenotype")){
     
   #layout
   if("layout"%in%templates){
-    if(length(analyte.file)>0){
+    if(length(layout.file)>0){
       warning("The layout mapping file already exists, remove it to setup a template for it")
     } else {
       wells<-paste0(LETTERS[1:8], rep(seq(1,12), each=8))

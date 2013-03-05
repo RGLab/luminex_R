@@ -49,7 +49,7 @@ sd.trim<-function(x, trim=0, na.rm=FALSE, ...){
 adjustRepeats2<-function(analyte, mbpg=99, mbpw=30){
 # modify the analyte data frame so that wells with insufficient number of beads are merged
 # estimate repeats effects
-  an_group<-split(analyte, analyte$group_name)
+  an_group<-split(analyte, analyte$sample_id)
   pvals <- numeric()
   ret <- data.frame()
 

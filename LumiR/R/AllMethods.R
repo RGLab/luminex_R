@@ -13,14 +13,17 @@ setMethod("show", "blum", function(object){
 setMethod("pData", "blum", function(object){
   return(pData(object@phenoData))
 })
-setReplaceMethod("pData", "blum", function(object, value){object@phenoData@data<-value})
-
+setReplaceMethod("pData", signature("blum", "data.frame"), function(object, value){
+  object@phenoData@data<-value
+  return(object)})
 
 ## contains information about analytes
 setMethod("fData", "blum", function(object){
   return(pData(object@featureData))
 })
-setReplaceMethod("fData", "blum", function(object, value){object@featureData@data<-value})
+setReplaceMethod("fData", signature("blum", "data.frame"), function(object, value){
+  object@featureData@data<-value
+  return(object)})
 
 # exprs accessor for bead level data a la eSet
 setMethod("exprs", "blum", function(object){
@@ -73,9 +76,9 @@ setMethod("melt","blum",
 function(x)
   {
   # Use the melt function in reshape2
-  # This generates a dataframe analyte, sample, RP1
+  # This generates a dataframe analyte, sample, FL
   df<-reshape2::melt(exprs(x))
-  names(df)<-c("RP1","bid","filename")
+  names(df)<-c("FL","bid","filename")
   fileId<-lapply(strsplit(as.character(df[,3]), split="/"), tail, 2)
   plate<-sapply(fileId, "[[", 1)
   filename<-sapply(fileId, "[[", 2)
@@ -91,7 +94,7 @@ setMethod("melt","slum",
           function(x)
           {
             # Use the melt function in reshape2
-            # This generates a dataframe analyte, sample, RP1
+            # This generates a dataframe analyte, sample, MFI
             df<-reshape2::melt(exprs(x))
             names(df)<-c("bid","filename",tolower(x@unit))            
             fileId<-lapply(strsplit(as.character(df[,2]), split="/"), tail, 2)
