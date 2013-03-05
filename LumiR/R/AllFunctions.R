@@ -54,7 +54,9 @@ read.experiment<-function(path="./"){
   if(type=="XPONENT"){exprs<-.read.exprs.xPonent(all.files)
   } else if(type=="LXB"){ exprs<-.read.exprs.lxb(all.files)
   } else {exprs<-.read.exprs.bioplex(all.files)}
-  #names(exprs)<-plates
+  names(exprs)<-unlist(lapply(lapply(names(exprs), function(x)tail(strsplit(x,"/")[[1]],2)), function(x){pData(phenoData)[pData(phenoData)$plate==x[1] & pData(phenoData)$filename==x[2], "sample_id"]})) #sample_id is the unique ID
+  
+  
 
   #fData
   if(length(analyte.file)==0){#Only the bid available
@@ -75,6 +77,8 @@ read.experiment<-function(path="./"){
   if(length(notMappedBid>0)){
     cat("Removing",length(notMappedBid),"of the beads found in the data that are not found in the mapping file:", notMappedBid,"\n")
     exprs<-lapply(exprs, function(x){x[names(x)%in%pData(featureData)$bid]}) #remove non mapped beads (0=outliers)
+    exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))
+  
     #pData(featureData)<-rbind(pData(featureData), data.frame(analyte=paste("unknown", notMappedBid, sep=""), bid=notMappedBid))
   }
 
@@ -238,16 +242,23 @@ slummarize<-function(from,type="MFI"){
   mfiSet@fit<-df2
 
   pNames<-unlist(lapply(strsplit(colnames(mat), split="/"), "[[", 1))
-  aNames<-fData(mfiSet)$analyte[match(rownames(mat), fData(mfiSet)$bid)]
+  #aNames<-fData(mfiSet)$analyte[match(rownames(mat), fData(mfiSet)$bid)]
+  aNames<-rownames(mat)
   conc<-c()
   coefs<-unique(mfiSet@fit[,c("plate", "analyte", "b","c","d","e","f")])
+  #co2<-merge(coefs, pData(mfiSet), by=c("plate", "filename"))
   inv<-mfiSet@inv
+  #for(i in 1:nrow(mat)){
+    #for(j in 1:ncol(mat)){
+      #conc<-c(conc, mfiSet@inv(mat[[i,j]], as.numeric(coefs[coefs$analyte==aNames[i] & coefs$plate==pNames[j],3:7])))
   for(i in 1:nrow(mat)){
     for(j in 1:ncol(mat)){
-      conc<-c(conc, mfiSet@inv(mat[[i,j]], as.numeric(coefs[coefs$analyte==aNames[i] & coefs$plate==pNames[j],3:7])))
+      conc<-c(conc, mfiSet@inv(mat[[i,j]], coefs[coefs$plate==strsplit(colnames(mat)[j], "_")[[1]][2] & coefs$analyte==rownames(mat)[i], 3:7]))
     }
   }
-  concMat<-t(matrix(conc, ncol=ncol(mat)))
+  concMat<-matrix(conc, ncol=ncol(mat))
+  rownames(concMat)<-rownames(mat)
+  colnames(concMat)<-colnames(mat)
   assayData(mfiSet)<-list(exprs=mat, concentration=concMat)
   mfiSet
 }
@@ -271,7 +282,7 @@ slummarize<-function(from,type="MFI"){
   }
   sortCoeffs<-do.call("rbind", lapply(coeffs[df$analyte], t))
   colnames(sortCoeffs)<-c('b','c','d','e','f')
-  df2<-cbind(df[,c("plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, sortCoeffs)
+  df2<-cbind(df[,c("sample_id", "plate", "filename", "well", "analyte", "mfi", "concentration")], calc_conc, p100rec, sortCoeffs)
   return(df2)
 }
 

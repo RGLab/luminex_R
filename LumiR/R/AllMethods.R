@@ -76,16 +76,10 @@ setMethod("melt","blum",
 function(x)
   {
   # Use the melt function in reshape2
-  # This generates a dataframe analyte, sample, FL
   df<-reshape2::melt(exprs(x))
-  names(df)<-c("FL","bid","filename")
-  fileId<-lapply(strsplit(as.character(df[,3]), split="/"), tail, 2)
-  plate<-sapply(fileId, "[[", 1)
-  filename<-sapply(fileId, "[[", 2)
-  df<-cbind(df[,1:2],plate, filename)
-
-  df<-merge(df,pData(x),by=c("filename", "plate"))
-  df<-merge(df,fData(x),by="bid")
+  names(df)<-c("FL","analyte","sample_id")
+  df<-merge(df,pData(x),by=c("sample_id"))
+  df<-merge(df,fData(x),by="analyte")
   return(df)
   
 })
@@ -94,16 +88,11 @@ setMethod("melt","slum",
           function(x)
           {
             # Use the melt function in reshape2
-            # This generates a dataframe analyte, sample, MFI
             df<-reshape2::melt(exprs(x))
-            names(df)<-c("bid","filename",tolower(x@unit))            
-            fileId<-lapply(strsplit(as.character(df[,2]), split="/"), tail, 2)
-            plate<-sapply(fileId, "[[", 1)
-            filename<-sapply(fileId, "[[", 2)
-            df<-cbind(df[,c(1,3)],plate, filename)
+            names(df)<-c("analyte","sample_id",tolower(x@unit))            
             ## merge all information
-            df<-merge(df,pData(x),by=c("filename", "plate"))
-            df<-merge(df,fData(x),by="bid")
+            df<-merge(df,pData(x),by=c("sample_id"))
+            df<-merge(df,fData(x),by="analyte")
             return(df)
           })
 
