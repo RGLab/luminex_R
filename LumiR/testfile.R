@@ -13,7 +13,8 @@ ggplot(df.mfi.subset)+geom_point(aes(x=concentration,y=mfi,color=plate),alpha=.5
 bl<-read.experiment(pathcsv)
 sl<-slummarize(bl)
 msl<-melt(sl)
-ggplot2::ggplot(msl, ggplot2::aes(color=plate), alpha=0.5)+ggplot2::scale_x_log10()+ggplot2::scale_y_log10()+ggplot2::facet_wrap(~analyte)+geom_sc(sl)    +ggplot2::geom_point(ggplot2::aes(x=concentration, y=mfi))
+msl.ss<-subset(msl,tolower(sample_type)=="standard")
+ggplot2::ggplot(msl.ss, ggplot2::aes(color=plate), alpha=0.5)+ggplot2::scale_x_log10()+ggplot2::scale_y_log10()+ggplot2::facet_wrap(~analyte)+geom_sc(sl)    +ggplot2::geom_point(ggplot2::aes(x=concentration, y=mfi))
 
 plot_layout(sl, plate_name="plate2", fill="sample_type")
 

@@ -17,7 +17,6 @@
 
 \tableofcontents
 
-%\newpage
 \section{General}
 This acquisition software from BioRad uses a proprietary file format that cannot be read directly by \texttt{LumiR}. These files with a .rbx extension should be exported in XML in order to be read by \texttt{read.experiment}.
 
@@ -57,6 +56,7 @@ To export automatically at the end of a run:
 
 
 \section{References}
-\htmladdnormallink{Bio-Plex Manager 6.1 User Guide}{http://www.bio-rad.com/webroot/web/pdf/lsr/literature/10022815.pdf}
+Bio-Plex Manager 6.1 User Guide:\\
+\htmladdnormallink{http://www.bio-rad.com/webroot/web/pdf/lsr/literature/10022815.pdf}{http://www.bio-rad.com/webroot/web/pdf/lsr/literature/10022815.pdf}
 
 \end{document}

@@ -17,7 +17,6 @@
 
 \tableofcontents
 
-%\newpage
 \section{General}
 Luminex's own software, xPONENT, outputs raw bead level data in csv (comma separated values) files.
 
