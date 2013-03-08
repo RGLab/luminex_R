@@ -13,7 +13,7 @@ read.experiment<-function(path="./"){
     type<-"XPONENT"; typeExt<-"csv"
   }
   
-  all.files<-unlist(lapply(plates,list_files_with_exts,exts=typeExt))  
+  all.files<-unlist(lapply(plates,list_files_with_exts,exts=typeExt)) 
 
   #pData
   if(length(pheno.file)==0){#Get plate/file/well based on the structure of the folder
@@ -51,10 +51,15 @@ read.experiment<-function(path="./"){
   }
 
   #exprs
-  if(type=="XPONENT"){exprs<-.read.exprs.xPonent(all.files)
-  } else if(type=="LXB"){ exprs<-.read.exprs.lxb(all.files)
-  } else {exprs<-.read.exprs.bioplex(all.files)}
-  names(exprs)<-unlist(lapply(lapply(names(exprs), function(x)tail(strsplit(x,"/")[[1]],2)), function(x){pData(phenoData)[pData(phenoData)$plate==x[1] & pData(phenoData)$filename==x[2], "sample_id"]})) #sample_id is the unique ID
+  if(type=="XPONENT"){
+    exprs<-.read.exprs.xPonent(all.files)
+  } else if(type=="LXB"){ 
+    exprs<-.read.exprs.lxb(all.files)
+  } else {
+    exprs<-.read.exprs.bioplex(all.files)
+  }
+  
+  #names(exprs)<-unlist(lapply(lapply(unique(exprs[,filename]), function(x)tail(strsplit(x,"/")[[1]],2)), function(x){pData(phenoData)[pData(phenoData)$plate==x[1] & pData(phenoData)$filename==x[2], "sample_id"]})) #sample_id is the unique ID
   
   
 
@@ -69,18 +74,27 @@ read.experiment<-function(path="./"){
       analyte<-paste("unknown", bid, sep="")
       featureData<-as(data.frame(analyte=analyte, bid=bid), 'AnnotatedDataFrame')
     }
-  } else { #checks: bid in mapping not in data and vice versa
+  } else { #checks: bid in mapping not in data and vice versa    
     featureData<-.read.analyte(analyte.file)
+    mapping<-as.data.table(featureData@data)
+    setkey(exprs,bid)
+    setkey(mapping,bid)
+    ## Join by bid
+    exprs<-exprs[mapping,]
+    # Re-order based on filename, then analyte
+    setkeyv(exprs,c("filename","analyte"))
   }
-  beadInExprs<-unique(unlist(lapply(exprs, names)))
-  notMappedBid<-beadInExprs[!beadInExprs%in%pData(featureData)$bid]
-  if(length(notMappedBid>0)){
-    cat("Removing",length(notMappedBid),"of the beads found in the data that are not found in the mapping file:", notMappedBid,"\n")
-    exprs<-lapply(exprs, function(x){x[names(x)%in%pData(featureData)$bid]}) #remove non mapped beads (0=outliers)
-    exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))
+  
+  
+#   beadInExprs<-unique(unlist(lapply(exprs, names)))
+#   notMappedBid<-beadInExprs[!beadInExprs%in%pData(featureData)$bid]
+#   if(length(notMappedBid>0)){
+#     cat("Removing",length(notMappedBid),"of the beads found in the data that are not found in the mapping file:", notMappedBid,"\n")
+#     exprs<-lapply(exprs, function(x){x[names(x)%in%pData(featureData)$bid]}) #remove non mapped beads (0=outliers)
+#     exprs<-lapply(exprs,function(x,fd){x<-x[names(x)%in%fd$bid];names(x)<-fd$analyte[match(names(x),fd$bid)];return(x);},fd=pData(featureData))
   
     #pData(featureData)<-rbind(pData(featureData), data.frame(analyte=paste("unknown", notMappedBid, sep=""), bid=notMappedBid))
-  }
+#  }
 
   blum<-new("blum", phenoData=phenoData, featureData=featureData, exprs=exprs)
   return(blum)
@@ -112,15 +126,17 @@ read.experiment<-function(path="./"){
 }
 
 .read.exprs.xPonent<-function(filenames){
-  sLine<-grep("[Ee]vent[Nn]o", readLines(filenames[1], n=5))-1
-  exprsList<-lapply(filenames, function(x){
-    con<-read.csv(x, skip=sLine, header=TRUE);
-    beadList<-split(con[,"RP1"],con[,2]);
-    beadList<-beadList[order(names(beadList))]
-    return(beadList);})
-    filenames<-unlist(lapply(filenames, function(x)paste(tail(strsplit(x,"/")[[1]],2), collapse="/")))
-    names(exprsList)<-filenames
-  return(exprsList)
+  exprsList<-lapply(filenames, function(x){dt<-fread(x);dt[,filename:=paste(tail(strsplit(x,"/")[[1]],2), collapse="/")]})
+  ## rbind all data.tables
+  ## The code could be improve when fread supports specifying the type for different columns
+  exprs<-rbindlist(exprsList)
+  ## Sanitize the names
+  setnames(exprs,2,"bid")
+  ## Lower case for all
+  setnames(exprs,names(exprs),tolower(names(exprs)))
+  ## Change the data types
+  exprs<-exprs[,lapply(.SD,as.integer),.SDcols=names(exprs)[1:9],by=filename]  
+  return(exprs)
 }
 .read.exprs.lxb<-function(filenames){
   nFiles<-length(filenames)
@@ -155,8 +171,6 @@ read.experiment<-function(path="./"){
   }
   return(exprs)
 }
-  
-  
 
 .read.analyte<-function(analyte.file){
   df<-read.csv(analyte.file, header=TRUE)
@@ -398,8 +412,6 @@ setup_templates<-function(path, templates=c("layout", "analyte", "phenotype")){
     }
   }
 }
-
-
 
 .getXponentBID<-function(firstFile){
   sLine<-grep("[Ee]vent[Nn]o", readLines(firstFile[1], n=5))-1

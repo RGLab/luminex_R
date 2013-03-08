@@ -35,7 +35,9 @@ importFrom(grid, unit)
 importFrom(ggplot2, ggplot, geom_point, geom_line, geom_polygon, aes, aes_string, facet_wrap, facet_grid, 
 labs, element_blank, theme, theme_bw, scale_x_log10, scale_y_log10)
 
-
+#data.table
+#importFrom(data.table,"setkey","setkeyv")
+#importClassesFrom(data.table,data.table)
 
 
 ######

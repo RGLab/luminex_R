@@ -7,7 +7,7 @@ setClass("blum",
            featureData="AnnotatedDataFrame",
            ## list of bead level data
            ## Stored as samples -> analytes
-           exprs="list")
+           exprs="data.table")
          )
 
 setClass("slum", 
