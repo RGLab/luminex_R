@@ -58,6 +58,10 @@ read.experiment<-function(path="./"){
   } else {
     exprs<-.read.exprs.bioplex(all.files)
   }
+  phenoDT<-as.data.table(pData(phenoData))[,list(plate, filename, sample_id)]
+  exprs<-merge(exprs, phenoDT, by=c("plate", "filename"))
+  setkey(exprs,sample_id)
+  
   
   #names(exprs)<-unlist(lapply(lapply(unique(exprs[,filename]), function(x)tail(strsplit(x,"/")[[1]],2)), function(x){pData(phenoData)[pData(phenoData)$plate==x[1] & pData(phenoData)$filename==x[2], "sample_id"]})) #sample_id is the unique ID
   
@@ -126,16 +130,31 @@ read.experiment<-function(path="./"){
 }
 
 .read.exprs.xPonent<-function(filenames){
-  exprsList<-lapply(filenames, function(x){dt<-fread(x);dt[,filename:=paste(tail(strsplit(x,"/")[[1]],2), collapse="/")]})
+  #exprsList<-lapply(filenames, function(x){dt<-fread(x);dt[,filename:=paste(tail(strsplit(x,"/")[[1]],2), collapse="/")]})
+  exprsList<-lapply(filenames, function(x){dt<-fread(x);
+                    ss=tail(strsplit(x,"/")[[1]],2)
+                    fname=ss[2]  # Get plate & fname now for the merge with sample_ID
+                    plate=ss[1]
+                    dt[,plate:=plate][,filename:=fname]
+                    })
   ## rbind all data.tables
   ## The code could be improve when fread supports specifying the type for different columns
   exprs<-rbindlist(exprsList)
-  ## Sanitize the names
-  setnames(exprs,2,"bid")
   ## Lower case for all
   setnames(exprs,names(exprs),tolower(names(exprs)))
+  bidGrep<-"id"
+  bIdx<-grep(bidGrep, names(exprs))
+  setnames(exprs, 
+  ## Sanitize the names
+  namesToGrep<-"id|cl|dd|rp1|plate|name"
+  cIdx<-grep(namesToGrep, names(exprs))
+  exprs<-exprs[,cIdx, with=FALSE]
   ## Change the data types
-  exprs<-exprs[,lapply(.SD,as.integer),.SDcols=names(exprs)[1:9],by=filename]  
+  intToGrep<-"id|cl|rp1"
+  iIdx<-grep(intToGrep, names(exprs))
+  #need to change SOME classes and keep all cols
+  exprs<-cbind(exprs[,names(exprs)[-iIdx], with=FALSE] ,exprs[,lapply(.SD, as.integer), .SDcols=names(exprs)[iIdx]])
+  #exprs<-exprs[,lapply(.SD,as.integer),.SDcols=names(exprs)[1:9],by=filename]  
   return(exprs)
 }
 .read.exprs.lxb<-function(filenames){
