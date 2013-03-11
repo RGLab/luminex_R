@@ -144,7 +144,9 @@ read.experiment<-function(path="./"){
   setnames(exprs,names(exprs),tolower(names(exprs)))
   bidGrep<-"id"
   bIdx<-grep(bidGrep, names(exprs))
-  setnames(exprs, 
+  name<-names(exprs)
+  name[bIdx]<-"bid"
+  setnames(exprs, name)
   ## Sanitize the names
   namesToGrep<-"id|cl|dd|rp1|plate|name"
   cIdx<-grep(namesToGrep, names(exprs))
@@ -153,7 +155,7 @@ read.experiment<-function(path="./"){
   intToGrep<-"id|cl|rp1"
   iIdx<-grep(intToGrep, names(exprs))
   #need to change SOME classes and keep all cols
-  exprs<-cbind(exprs[,names(exprs)[-iIdx], with=FALSE] ,exprs[,lapply(.SD, as.integer), .SDcols=names(exprs)[iIdx]])
+  exprs<-cbind(exprs[,names(exprs)[-iIdx], with=FALSE] ,exprs[,lapply(.SD, as.numeric), .SDcols=names(exprs)[iIdx]])
   #exprs<-exprs[,lapply(.SD,as.integer),.SDcols=names(exprs)[1:9],by=filename]  
   return(exprs)
 }
@@ -256,8 +258,13 @@ read.experiment<-function(path="./"){
 
 ### Summarize to MFIs and add standardCurves informations
 slummarize<-function(from,type="MFI"){
-  mat<-lapply(exprs(from),sapply,median)
-  mat<-t(do.call("rbind",mat))
+  dt<-exprs(from)
+  dt<-dt[,as.double(median(rp1)), by="sample_id,analyte"]
+  setnames(dt, c("sample_id", "analyte", type))
+  setkey(dt, sample_id)
+  mat<-matrix(dt[,MFI], ncol=184, dimnames=list(levels(dt[,analyte]),levels(dt[,sample_id])))
+  #mat<-lapply(exprs(from),sapply,median)
+  #mat<-t(do.call("rbind",mat))
   mfiSet<-new("slum", formula=as.formula("log(mfi) ~ c + (d - c)/(1 + exp(b * (log(x) - log(e))))^f"), inv=function(y, parmVec){exp(log(((parmVec[3] - parmVec[2])/(log(y) - parmVec[2]))^(1/parmVec[5]) - 1)/parmVec[1] + log(parmVec[4]))}
   )
   exprs(mfiSet)<-mat
@@ -274,16 +281,9 @@ slummarize<-function(from,type="MFI"){
   df2<-do.call("rbind",df2)
   mfiSet@fit<-df2
 
-  pNames<-unlist(lapply(strsplit(colnames(mat), split="/"), "[[", 1))
-  #aNames<-fData(mfiSet)$analyte[match(rownames(mat), fData(mfiSet)$bid)]
-  aNames<-rownames(mat)
   conc<-c()
   coefs<-unique(mfiSet@fit[,c("plate", "analyte", "b","c","d","e","f")])
-  #co2<-merge(coefs, pData(mfiSet), by=c("plate", "filename"))
   inv<-mfiSet@inv
-  #for(i in 1:nrow(mat)){
-    #for(j in 1:ncol(mat)){
-      #conc<-c(conc, mfiSet@inv(mat[[i,j]], as.numeric(coefs[coefs$analyte==aNames[i] & coefs$plate==pNames[j],3:7])))
   for(i in 1:nrow(mat)){
     for(j in 1:ncol(mat)){
       conc<-c(conc, mfiSet@inv(mat[[i,j]], coefs[coefs$plate==strsplit(colnames(mat)[j], "_")[[1]][2] & coefs$analyte==rownames(mat)[i], 3:7]))
@@ -295,7 +295,6 @@ slummarize<-function(from,type="MFI"){
   assayData(mfiSet)<-list(exprs=mat, concentration=concMat)
   mfiSet
 }
-	  
 
 .fit_sc<-function(df, inv)
 {

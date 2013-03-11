@@ -4,7 +4,7 @@
 setMethod("show", "blum", function(object){
   cat("An object of class blum with",nrow(fData(object)),"analytes:","\n")
   cat("\t", as.character(head(fData(object)$analyte, 3)),"...", as.character(tail(fData(object)$analyte, 3)),"\n")
-  cat(length(unlist(exprs(object), use.names=FALSE)), "measures of expression in", nrow(pData(object)),"wells, on", length(unique(pData(object)$plate)), "plates.","\n")
+  cat(nrow(exprs(object)), "measures of expression in", nrow(pData(object)),"wells, on", length(unique(pData(object)$plate)), "plates.","\n")
   cat("And slots:", names(getSlots("blum")),"\n")
 })
 
